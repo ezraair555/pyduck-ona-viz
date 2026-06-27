@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Acme Corp · Q4 2026</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  body {
+    margin: 0;
+    font-family: 'DejaVu Sans', 'Helvetica Neue', Arial, sans-serif;
+    background: #FAFAFA;
+    color: #4D4D4D;
+  }
+  #header {
+    padding: 16px 24px;
+    background: white;
+    border-bottom: 1px solid #E5E5E5;
+  }
+  #header h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1F3A5F;
+  }
+  #header .subtitle {
+    font-size: 12px;
+    color: #A6A6A6;
+    margin-top: 2px;
+  }
+  #chart {
+    width: 100%;
+    height: 820px;
+    background: white;
+    position: relative;
+    overflow: hidden;
+  }
+  .node circle {
+    stroke: white;
+    stroke-width: 2;
+    cursor: pointer;
+    transition: r 120ms ease-out;
+  }
+  .node:hover circle { stroke: #E27D60; stroke-width: 3; }
+  .node text { font-size: 11px; fill: #4D4D4D; pointer-events: none; }
+  .node .name { font-weight: 600; }
+  .node .title-text { font-size: 9px; fill: #A6A6A6; }
+  .link {
+    fill: none;
+    stroke: #C8C8C8;
+    stroke-width: 1.2;
+    stroke-opacity: 0.85;
+  }
+  #legend {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: white;
+    border: 1px solid #E5E5E5;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 11px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    z-index: 10;
+  }
+  #legend h3 {
+    margin: 0 0 6px 0;
+    font-size: 11px;
+    color: #A6A6A6;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  #legend .swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  #controls {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    z-index: 10;
+    display: flex;
+    gap: 6px;
+  }
+  #controls button {
+    background: white;
+    border: 1px solid #A6A6A6;
+    color: #1F3A5F;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  #controls button:hover { background: #FAFAFA; }
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>Acme Corp · Q4 2026</h1>
+  <div class="subtitle">Click a node to collapse / expand its subtree. Scroll to zoom, drag to pan.</div>
+</div>
+<div id="chart">
+  <div id="legend">
+    <h3>department</h3>
+    <div id="legend-rows"></div>
+  </div>
+  <div id="controls">
+    <button onclick="chart.zoomBy(1.2)">+</button>
+    <button onclick="chart.zoomBy(0.83)">−</button>
+    <button onclick="chart.reset()">Reset</button>
+    <button onclick="chart.expandAll()">Expand all</button>
+    <button onclick="chart.collapseAll()">Collapse all</button>
+  </div>
+</div>
+<script>
+  const treeData = {"id": "E0001", "name": "Person-E0001", "title": "Manager", "department": "HR", "level": "L4", "fill": "#5B9279", "children": [{"id": "E0002", "name": "Person-E0002", "title": "SVP", "department": "Sales", "level": "L1", "fill": "#4A6FA5", "children": [{"id": "E0008", "name": "Person-E0008", "title": "SVP", "department": "HR", "level": "L1", "fill": "#5B9279", "children": [{"id": "E0030", "name": "Person-E0030", "title": "Director", "department": "Sales", "level": "L4", "fill": "#4A6FA5", "children": [{"id": "E0090", "name": "Person-E0090", "title": "Director", "department": "HR", "level": "L2", "fill": "#5B9279", "children": [{"id": "E0210", "name": "Person-E0210", "title": "Manager", "department": "Engineering", "level": "L1", "fill": "#1F3A5F", "children": []}]}, {"id": "E0130", "name": "Person-E0130", "title": "Manager", "department": "Finance", "level": "L3", "fill": "#E27D60", "children": [{"id": "E0160", "name": "Person-E0160", "title": "SVP", "department": "Finance", "level": "L4", "fill": "#E27D60", "children": []}, {"id": "E0250", "name": "Person-E0250", "title": "VP", "department": "Finance", "level": "L3", "fill": "#E27D60", "children": []}]}]}, {"id": "E0044", "name": "Person-E0044", "title": "SVP", "department": "Sales", "level": "L3", "fill": "#4A6FA5", "children": [{"id": "E0064", "name": "Person-E0064", "title": "VP", "department": "Finance", "level": "L2", "fill": "#E27D60", "children": [{"id": "E0184", "name": "Person-E0184", "title": "VP", "department": "HR", "level": "L3", "fill": "#5B9279", "children": []}, {"id": "E0274", "name": "Person-E0274", "title": "SVP", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": []}]}, {"id": "E0104", "name": "Person-E0104", "title": "Manager", "department": "Marketing", "level": "L4", "fill": "#9C7CA5", "children": [{"id": "E0224", "name": "Person-E0224", "title": "Director", "department": "Finance", "level": "L2", "fill": "#E27D60", "children": []}]}, {"id": "E0144", "name": "Person-E0144", "title": "IC", "department": "Sales", "level": "L2", "fill": "#4A6FA5", "children": [{"id": "E0174", "name": "Person-E0174", "title": "SVP", "department": "HR", "level": "L4", "fill": "#5B9279", "children": []}, {"id": "E0264", "name": "Person-E0264", "title": "Director", "department": "Operations", "level": "L3", "fill": "#E8C547", "children": []}]}]}, {"id": "E0058", "name": "Person-E0058", "title": "SVP", "department": "Marketing", "level": "L1", "fill": "#9C7CA5", "children": [{"id": "E0078", "name": "Person-E0078", "title": "Manager", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": [{"id": "E0198", "name": "Person-E0198", "title": "IC", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": []}, {"id": "E0288", "name": "Person-E0288", "title": "Manager", "department": "Operations", "level": "L5", "fill": "#E8C547", "children": []}]}, {"id": "E0118", "name": "Person-E0118", "title": "VP", "department": "HR", "level": "L5", "fill": "#5B9279", "children": [{"id": "E0238", "name": "Person-E0238", "title": "IC", "department": "Engineering", "level": "L4", "fill": "#1F3A5F", "children": []}]}]}]}, {"id": "E0012", "name": "Person-E0012", "title": "IC", "department": "Finance", "level": "L4", "fill": "#E27D60", "children": [{"id": "E0020", "name": "Person-E0020", "title": "Director", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": [{"id": "E0080", "name": "Person-E0080", "title": "SVP", "department": "Finance", "level": "L1", "fill": "#E27D60", "children": [{"id": "E0200", "name": "Person-E0200", "title": "Director", "department": "Sales", "level": "L4", "fill": "#4A6FA5", "children": []}, {"id": "E0290", "name": "Person-E0290", "title": "SVP", "department": "HR", "level": "L4", "fill": "#5B9279", "children": []}]}, {"id": "E0120", "name": "Person-E0120", "title": "Manager", "department": "Sales", "level": "L4", "fill": "#4A6FA5", "children": [{"id": "E0150", "name": "Person-E0150", "title": "SVP", "department": "Marketing", "level": "L2", "fill": "#9C7CA5", "children": []}, {"id": "E0240", "name": "Person-E0240", "title": "Director", "department": "Marketing", "level": "L1", "fill": "#9C7CA5", "children": []}]}]}, {"id": "E0034", "name": "Person-E0034", "title": "VP", "department": "Finance", "level": "L3", "fill": "#E27D60", "children": [{"id": "E0094", "name": "Person-E0094", "title": "IC", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": [{"id": "E0214", "name": "Person-E0214", "title": "Director", "department": "Sales", "level": "L5", "fill": "#4A6FA5", "children": []}]}, {"id": "E0134", "name": "Person-E0134", "title": "IC", "department": "Operations", "level": "L3", "fill": "#E8C547", "children": [{"id": "E0164", "name": "Person-E0164", "title": "SVP", "department": "Engineering", "level": "L5", "fill": "#1F3A5F", "children": []}, {"id": "E0254", "name": "Person-E0254", "title": "SVP", "department": "Marketing", "level": "L2", "fill": "#9C7CA5", "children": []}]}]}, {"id": "E0048", "name": "Person-E0048", "title": "Director", "department": "Marketing", "level": "L5", "fill": "#9C7CA5", "children": [{"id": "E0068", "name": "Person-E0068", "title": "IC", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": [{"id": "E0188", "name": "Person-E0188", "title": "Manager", "department": "HR", "level": "L2", "fill": "#5B9279", "children": []}, {"id": "E0278", "name": "Person-E0278", "title": "SVP", "department": "HR", "level": "L4", "fill": "#5B9279", "children": []}]}, {"id": "E0108", "name": "Person-E0108", "title": "SVP", "department": "HR", "level": "L2", "fill": "#5B9279", "children": [{"id": "E0228", "name": "Person-E0228", "title": "Manager", "department": "HR", "level": "L4", "fill": "#5B9279", "children": []}]}, {"id": "E0148", "name": "Person-E0148", "title": "SVP", "department": "HR", "level": "L1", "fill": "#5B9279", "children": [{"id": "E0178", "name": "Person-E0178", "title": "Manager", "department": "Finance", "level": "L5", "fill": "#E27D60", "children": []}, {"id": "E0268", "name": "Person-E0268", "title": "IC", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}]}]}]}, {"id": "E0016", "name": "Person-E0016", "title": "VP", "department": "Sales", "level": "L4", "fill": "#4A6FA5", "children": [{"id": "E0024", "name": "Person-E0024", "title": "IC", "department": "Sales", "level": "L1", "fill": "#4A6FA5", "children": [{"id": "E0084", "name": "Person-E0084", "title": "SVP", "department": "Operations", "level": "L5", "fill": "#E8C547", "children": [{"id": "E0204", "name": "Person-E0204", "title": "IC", "department": "Engineering", "level": "L1", "fill": "#1F3A5F", "children": []}, {"id": "E0294", "name": "Person-E0294", "title": "Director", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": []}]}, {"id": "E0124", "name": "Person-E0124", "title": "VP", "department": "Marketing", "level": "L1", "fill": "#9C7CA5", "children": [{"id": "E0154", "name": "Person-E0154", "title": "IC", "department": "HR", "level": "L5", "fill": "#5B9279", "children": []}, {"id": "E0244", "name": "Person-E0244", "title": "VP", "department": "Finance", "level": "L4", "fill": "#E27D60", "children": []}]}]}, {"id": "E0038", "name": "Person-E0038", "title": "Manager", "department": "Operations", "level": "L3", "fill": "#E8C547", "children": [{"id": "E0098", "name": "Person-E0098", "title": "SVP", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": [{"id": "E0218", "name": "Person-E0218", "title": "VP", "department": "Engineering", "level": "L3", "fill": "#1F3A5F", "children": []}]}, {"id": "E0138", "name": "Person-E0138", "title": "Director", "department": "Sales", "level": "L3", "fill": "#4A6FA5", "children": [{"id": "E0168", "name": "Person-E0168", "title": "Director", "department": "Finance", "level": "L1", "fill": "#E27D60", "children": []}, {"id": "E0258", "name": "Person-E0258", "title": "Director", "department": "Sales", "level": "L5", "fill": "#4A6FA5", "children": []}]}]}, {"id": "E0052", "name": "Person-E0052", "title": "VP", "department": "Sales", "level": "L5", "fill": "#4A6FA5", "children": [{"id": "E0072", "name": "Person-E0072", "title": "VP", "department": "Sales", "level": "L3", "fill": "#4A6FA5", "children": [{"id": "E0192", "name": "Person-E0192", "title": "SVP", "department": "Marketing", "level": "L1", "fill": "#9C7CA5", "children": []}, {"id": "E0282", "name": "Person-E0282", "title": "SVP", "department": "Sales", "level": "L4", "fill": "#4A6FA5", "children": []}]}, {"id": "E0112", "name": "Person-E0112", "title": "VP", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": [{"id": "E0232", "name": "Person-E0232", "title": "VP", "department": "HR", "level": "L1", "fill": "#5B9279", "children": []}]}]}]}]}, {"id": "E0003", "name": "Person-E0003", "title": "VP", "department": "HR", "level": "L3", "fill": "#5B9279", "children": [{"id": "E0009", "name": "Person-E0009", "title": "IC", "department": "Engineering", "level": "L4", "fill": "#1F3A5F", "children": [{"id": "E0031", "name": "Person-E0031", "title": "VP", "department": "Sales", "level": "L1", "fill": "#4A6FA5", "children": [{"id": "E0091", "name": "Person-E0091", "title": "Director", "department": "Sales", "level": "L4", "fill": "#4A6FA5", "children": [{"id": "E0211", "name": "Person-E0211", "title": "Manager", "department": "Sales", "level": "L3", "fill": "#4A6FA5", "children": []}]}, {"id": "E0131", "name": "Person-E0131", "title": "SVP", "department": "Finance", "level": "L3", "fill": "#E27D60", "children": [{"id": "E0161", "name": "Person-E0161", "title": "VP", "department": "Engineering", "level": "L4", "fill": "#1F3A5F", "children": []}, {"id": "E0251", "name": "Person-E0251", "title": "Director", "department": "Marketing", "level": "L4", "fill": "#9C7CA5", "children": []}]}]}, {"id": "E0045", "name": "Person-E0045", "title": "Manager", "department": "Sales", "level": "L2", "fill": "#4A6FA5", "children": [{"id": "E0065", "name": "Person-E0065", "title": "IC", "department": "Finance", "level": "L1", "fill": "#E27D60", "children": [{"id": "E0185", "name": "Person-E0185", "title": "Director", "department": "Sales", "level": "L3", "fill": "#4A6FA5", "children": []}, {"id": "E0275", "name": "Person-E0275", "title": "SVP", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": []}]}, {"id": "E0105", "name": "Person-E0105", "title": "Director", "department": "HR", "level": "L4", "fill": "#5B9279", "children": [{"id": "E0225", "name": "Person-E0225", "title": "VP", "department": "Marketing", "level": "L2", "fill": "#9C7CA5", "children": []}]}, {"id": "E0145", "name": "Person-E0145", "title": "SVP", "department": "Operations", "level": "L5", "fill": "#E8C547", "children": [{"id": "E0175", "name": "Person-E0175", "title": "Manager", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": []}, {"id": "E0265", "name": "Person-E0265", "title": "Manager", "department": "Sales", "level": "L4", "fill": "#4A6FA5", "children": []}]}]}, {"id": "E0059", "name": "Person-E0059", "title": "Director", "department": "Engineering", "level": "L1", "fill": "#1F3A5F", "children": [{"id": "E0079", "name": "Person-E0079", "title": "SVP", "department": "Sales", "level": "L5", "fill": "#4A6FA5", "children": [{"id": "E0199", "name": "Person-E0199", "title": "Manager", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": []}, {"id": "E0289", "name": "Person-E0289", "title": "Director", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}]}, {"id": "E0119", "name": "Person-E0119", "title": "IC", "department": "Engineering", "level": "L5", "fill": "#1F3A5F", "children": [{"id": "E0239", "name": "Person-E0239", "title": "SVP", "department": "Engineering", "level": "L4", "fill": "#1F3A5F", "children": []}]}]}]}, {"id": "E0013", "name": "Person-E0013", "title": "VP", "department": "HR", "level": "L3", "fill": "#5B9279", "children": [{"id": "E0021", "name": "Person-E0021", "title": "SVP", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": [{"id": "E0081", "name": "Person-E0081", "title": "Director", "department": "Sales", "level": "L4", "fill": "#4A6FA5", "children": [{"id": "E0201", "name": "Person-E0201", "title": "SVP", "department": "Marketing", "level": "L5", "fill": "#9C7CA5", "children": []}, {"id": "E0291", "name": "Person-E0291", "title": "VP", "department": "Marketing", "level": "L4", "fill": "#9C7CA5", "children": []}]}, {"id": "E0121", "name": "Person-E0121", "title": "Manager", "department": "Engineering", "level": "L5", "fill": "#1F3A5F", "children": [{"id": "E0151", "name": "Person-E0151", "title": "VP", "department": "Marketing", "level": "L5", "fill": "#9C7CA5", "children": []}, {"id": "E0241", "name": "Person-E0241", "title": "VP", "department": "Sales", "level": "L5", "fill": "#4A6FA5", "children": []}]}]}, {"id": "E0035", "name": "Person-E0035", "title": "Manager", "department": "Finance", "level": "L4", "fill": "#E27D60", "children": [{"id": "E0095", "name": "Person-E0095", "title": "IC", "department": "HR", "level": "L3", "fill": "#5B9279", "children": [{"id": "E0215", "name": "Person-E0215", "title": "SVP", "department": "HR", "level": "L1", "fill": "#5B9279", "children": []}]}, {"id": "E0135", "name": "Person-E0135", "title": "SVP", "department": "Sales", "level": "L1", "fill": "#4A6FA5", "children": [{"id": "E0165", "name": "Person-E0165", "title": "Manager", "department": "Marketing", "level": "L5", "fill": "#9C7CA5", "children": []}, {"id": "E0255", "name": "Person-E0255", "title": "Manager", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": []}]}]}, {"id": "E0049", "name": "Person-E0049", "title": "VP", "department": "Sales", "level": "L4", "fill": "#4A6FA5", "children": [{"id": "E0069", "name": "Person-E0069", "title": "Director", "department": "HR", "level": "L3", "fill": "#5B9279", "children": [{"id": "E0189", "name": "Person-E0189", "title": "IC", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}, {"id": "E0279", "name": "Person-E0279", "title": "SVP", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}]}, {"id": "E0109", "name": "Person-E0109", "title": "SVP", "department": "Operations", "level": "L2", "fill": "#E8C547", "children": [{"id": "E0229", "name": "Person-E0229", "title": "Manager", "department": "Operations", "level": "L2", "fill": "#E8C547", "children": []}]}, {"id": "E0149", "name": "Person-E0149", "title": "IC", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": [{"id": "E0179", "name": "Person-E0179", "title": "Director", "department": "Engineering", "level": "L1", "fill": "#1F3A5F", "children": []}, {"id": "E0269", "name": "Person-E0269", "title": "IC", "department": "Finance", "level": "L4", "fill": "#E27D60", "children": []}]}]}]}, {"id": "E0017", "name": "Person-E0017", "title": "Manager", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": [{"id": "E0025", "name": "Person-E0025", "title": "VP", "department": "HR", "level": "L4", "fill": "#5B9279", "children": [{"id": "E0085", "name": "Person-E0085", "title": "Director", "department": "HR", "level": "L3", "fill": "#5B9279", "children": [{"id": "E0205", "name": "Person-E0205", "title": "Director", "department": "Engineering", "level": "L1", "fill": "#1F3A5F", "children": []}, {"id": "E0295", "name": "Person-E0295", "title": "Director", "department": "HR", "level": "L1", "fill": "#5B9279", "children": []}]}, {"id": "E0125", "name": "Person-E0125", "title": "IC", "department": "Finance", "level": "L1", "fill": "#E27D60", "children": [{"id": "E0155", "name": "Person-E0155", "title": "SVP", "department": "Marketing", "level": "L2", "fill": "#9C7CA5", "children": []}, {"id": "E0245", "name": "Person-E0245", "title": "VP", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}]}]}, {"id": "E0039", "name": "Person-E0039", "title": "Director", "department": "Engineering", "level": "L1", "fill": "#1F3A5F", "children": [{"id": "E0099", "name": "Person-E0099", "title": "SVP", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": [{"id": "E0219", "name": "Person-E0219", "title": "IC", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": []}]}, {"id": "E0139", "name": "Person-E0139", "title": "Manager", "department": "Finance", "level": "L2", "fill": "#E27D60", "children": [{"id": "E0169", "name": "Person-E0169", "title": "IC", "department": "Finance", "level": "L4", "fill": "#E27D60", "children": []}, {"id": "E0259", "name": "Person-E0259", "title": "VP", "department": "Operations", "level": "L2", "fill": "#E8C547", "children": []}]}]}, {"id": "E0053", "name": "Person-E0053", "title": "Manager", "department": "HR", "level": "L2", "fill": "#5B9279", "children": [{"id": "E0073", "name": "Person-E0073", "title": "SVP", "department": "HR", "level": "L5", "fill": "#5B9279", "children": [{"id": "E0193", "name": "Person-E0193", "title": "Director", "department": "Sales", "level": "L3", "fill": "#4A6FA5", "children": []}, {"id": "E0283", "name": "Person-E0283", "title": "Director", "department": "Sales", "level": "L5", "fill": "#4A6FA5", "children": []}]}, {"id": "E0113", "name": "Person-E0113", "title": "Manager", "department": "Marketing", "level": "L4", "fill": "#9C7CA5", "children": [{"id": "E0233", "name": "Person-E0233", "title": "Director", "department": "Finance", "level": "L5", "fill": "#E27D60", "children": []}]}]}]}]}, {"id": "E0004", "name": "Person-E0004", "title": "IC", "department": "Sales", "level": "L5", "fill": "#4A6FA5", "children": [{"id": "E0006", "name": "Person-E0006", "title": "IC", "department": "Operations", "level": "L5", "fill": "#E8C547", "children": [{"id": "E0028", "name": "Person-E0028", "title": "VP", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": [{"id": "E0088", "name": "Person-E0088", "title": "Director", "department": "Sales", "level": "L2", "fill": "#4A6FA5", "children": [{"id": "E0208", "name": "Person-E0208", "title": "Manager", "department": "Marketing", "level": "L2", "fill": "#9C7CA5", "children": []}, {"id": "E0298", "name": "Person-E0298", "title": "VP", "department": "Operations", "level": "L2", "fill": "#E8C547", "children": []}]}, {"id": "E0128", "name": "Person-E0128", "title": "Manager", "department": "Engineering", "level": "L1", "fill": "#1F3A5F", "children": [{"id": "E0158", "name": "Person-E0158", "title": "Director", "department": "Sales", "level": "L3", "fill": "#4A6FA5", "children": []}, {"id": "E0248", "name": "Person-E0248", "title": "VP", "department": "Finance", "level": "L2", "fill": "#E27D60", "children": []}]}]}, {"id": "E0042", "name": "Person-E0042", "title": "IC", "department": "Operations", "level": "L2", "fill": "#E8C547", "children": [{"id": "E0062", "name": "Person-E0062", "title": "VP", "department": "Marketing", "level": "L1", "fill": "#9C7CA5", "children": [{"id": "E0182", "name": "Person-E0182", "title": "SVP", "department": "Operations", "level": "L2", "fill": "#E8C547", "children": []}, {"id": "E0272", "name": "Person-E0272", "title": "IC", "department": "HR", "level": "L3", "fill": "#5B9279", "children": []}]}, {"id": "E0102", "name": "Person-E0102", "title": "IC", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": [{"id": "E0222", "name": "Person-E0222", "title": "VP", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": []}]}, {"id": "E0142", "name": "Person-E0142", "title": "VP", "department": "Operations", "level": "L3", "fill": "#E8C547", "children": [{"id": "E0172", "name": "Person-E0172", "title": "SVP", "department": "Finance", "level": "L4", "fill": "#E27D60", "children": []}, {"id": "E0262", "name": "Person-E0262", "title": "IC", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": []}]}]}, {"id": "E0056", "name": "Person-E0056", "title": "SVP", "department": "HR", "level": "L1", "fill": "#5B9279", "children": [{"id": "E0076", "name": "Person-E0076", "title": "SVP", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": [{"id": "E0196", "name": "Person-E0196", "title": "Director", "department": "Marketing", "level": "L2", "fill": "#9C7CA5", "children": []}, {"id": "E0286", "name": "Person-E0286", "title": "VP", "department": "Sales", "level": "L4", "fill": "#4A6FA5", "children": []}]}, {"id": "E0116", "name": "Person-E0116", "title": "SVP", "department": "HR", "level": "L2", "fill": "#5B9279", "children": [{"id": "E0236", "name": "Person-E0236", "title": "Director", "department": "Finance", "level": "L4", "fill": "#E27D60", "children": []}]}]}]}, {"id": "E0010", "name": "Person-E0010", "title": "VP", "department": "Marketing", "level": "L2", "fill": "#9C7CA5", "children": [{"id": "E0032", "name": "Person-E0032", "title": "SVP", "department": "HR", "level": "L2", "fill": "#5B9279", "children": [{"id": "E0092", "name": "Person-E0092", "title": "SVP", "department": "HR", "level": "L2", "fill": "#5B9279", "children": [{"id": "E0212", "name": "Person-E0212", "title": "VP", "department": "Finance", "level": "L2", "fill": "#E27D60", "children": []}]}, {"id": "E0132", "name": "Person-E0132", "title": "SVP", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": [{"id": "E0162", "name": "Person-E0162", "title": "IC", "department": "Operations", "level": "L5", "fill": "#E8C547", "children": []}, {"id": "E0252", "name": "Person-E0252", "title": "Manager", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": []}]}]}, {"id": "E0046", "name": "Person-E0046", "title": "VP", "department": "Sales", "level": "L1", "fill": "#4A6FA5", "children": [{"id": "E0066", "name": "Person-E0066", "title": "Manager", "department": "HR", "level": "L3", "fill": "#5B9279", "children": [{"id": "E0186", "name": "Person-E0186", "title": "Director", "department": "Operations", "level": "L2", "fill": "#E8C547", "children": []}, {"id": "E0276", "name": "Person-E0276", "title": "SVP", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}]}, {"id": "E0106", "name": "Person-E0106", "title": "SVP", "department": "Finance", "level": "L2", "fill": "#E27D60", "children": [{"id": "E0226", "name": "Person-E0226", "title": "Manager", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}]}, {"id": "E0146", "name": "Person-E0146", "title": "Director", "department": "Marketing", "level": "L1", "fill": "#9C7CA5", "children": [{"id": "E0176", "name": "Person-E0176", "title": "VP", "department": "Operations", "level": "L5", "fill": "#E8C547", "children": []}, {"id": "E0266", "name": "Person-E0266", "title": "Manager", "department": "HR", "level": "L1", "fill": "#5B9279", "children": []}]}]}]}, {"id": "E0014", "name": "Person-E0014", "title": "Director", "department": "Sales", "level": "L4", "fill": "#4A6FA5", "children": [{"id": "E0022", "name": "Person-E0022", "title": "Manager", "department": "Operations", "level": "L2", "fill": "#E8C547", "children": [{"id": "E0082", "name": "Person-E0082", "title": "IC", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": [{"id": "E0202", "name": "Person-E0202", "title": "VP", "department": "Marketing", "level": "L1", "fill": "#9C7CA5", "children": []}, {"id": "E0292", "name": "Person-E0292", "title": "IC", "department": "Engineering", "level": "L4", "fill": "#1F3A5F", "children": []}]}, {"id": "E0122", "name": "Person-E0122", "title": "SVP", "department": "Sales", "level": "L5", "fill": "#4A6FA5", "children": [{"id": "E0152", "name": "Person-E0152", "title": "Manager", "department": "HR", "level": "L3", "fill": "#5B9279", "children": []}, {"id": "E0242", "name": "Person-E0242", "title": "SVP", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": []}]}]}, {"id": "E0036", "name": "Person-E0036", "title": "IC", "department": "Sales", "level": "L3", "fill": "#4A6FA5", "children": [{"id": "E0096", "name": "Person-E0096", "title": "Manager", "department": "Finance", "level": "L1", "fill": "#E27D60", "children": [{"id": "E0216", "name": "Person-E0216", "title": "Manager", "department": "Engineering", "level": "L5", "fill": "#1F3A5F", "children": []}]}, {"id": "E0136", "name": "Person-E0136", "title": "IC", "department": "Marketing", "level": "L4", "fill": "#9C7CA5", "children": [{"id": "E0166", "name": "Person-E0166", "title": "VP", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": []}, {"id": "E0256", "name": "Person-E0256", "title": "Manager", "department": "Engineering", "level": "L5", "fill": "#1F3A5F", "children": []}]}]}, {"id": "E0050", "name": "Person-E0050", "title": "Director", "department": "Sales", "level": "L1", "fill": "#4A6FA5", "children": [{"id": "E0070", "name": "Person-E0070", "title": "IC", "department": "Operations", "level": "L5", "fill": "#E8C547", "children": [{"id": "E0190", "name": "Person-E0190", "title": "IC", "department": "Engineering", "level": "L3", "fill": "#1F3A5F", "children": []}, {"id": "E0280", "name": "Person-E0280", "title": "Manager", "department": "Engineering", "level": "L4", "fill": "#1F3A5F", "children": []}]}, {"id": "E0110", "name": "Person-E0110", "title": "IC", "department": "Finance", "level": "L5", "fill": "#E27D60", "children": [{"id": "E0230", "name": "Person-E0230", "title": "Manager", "department": "Finance", "level": "L3", "fill": "#E27D60", "children": []}]}]}]}, {"id": "E0018", "name": "Person-E0018", "title": "VP", "department": "Operations", "level": "L3", "fill": "#E8C547", "children": [{"id": "E0026", "name": "Person-E0026", "title": "Manager", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": [{"id": "E0086", "name": "Person-E0086", "title": "VP", "department": "HR", "level": "L1", "fill": "#5B9279", "children": [{"id": "E0206", "name": "Person-E0206", "title": "Manager", "department": "Sales", "level": "L3", "fill": "#4A6FA5", "children": []}, {"id": "E0296", "name": "Person-E0296", "title": "VP", "department": "Operations", "level": "L2", "fill": "#E8C547", "children": []}]}, {"id": "E0126", "name": "Person-E0126", "title": "Manager", "department": "Engineering", "level": "L1", "fill": "#1F3A5F", "children": [{"id": "E0156", "name": "Person-E0156", "title": "VP", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": []}, {"id": "E0246", "name": "Person-E0246", "title": "VP", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": []}]}]}, {"id": "E0040", "name": "Person-E0040", "title": "IC", "department": "Engineering", "level": "L1", "fill": "#1F3A5F", "children": [{"id": "E0060", "name": "Person-E0060", "title": "Manager", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": [{"id": "E0180", "name": "Person-E0180", "title": "Manager", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}, {"id": "E0270", "name": "Person-E0270", "title": "Director", "department": "Engineering", "level": "L5", "fill": "#1F3A5F", "children": []}]}, {"id": "E0100", "name": "Person-E0100", "title": "IC", "department": "Finance", "level": "L4", "fill": "#E27D60", "children": [{"id": "E0220", "name": "Person-E0220", "title": "VP", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}]}, {"id": "E0140", "name": "Person-E0140", "title": "VP", "department": "Finance", "level": "L4", "fill": "#E27D60", "children": [{"id": "E0170", "name": "Person-E0170", "title": "VP", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}, {"id": "E0260", "name": "Person-E0260", "title": "Manager", "department": "Operations", "level": "L2", "fill": "#E8C547", "children": []}]}]}, {"id": "E0054", "name": "Person-E0054", "title": "Director", "department": "HR", "level": "L4", "fill": "#5B9279", "children": [{"id": "E0074", "name": "Person-E0074", "title": "Manager", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": [{"id": "E0194", "name": "Person-E0194", "title": "IC", "department": "Operations", "level": "L2", "fill": "#E8C547", "children": []}, {"id": "E0284", "name": "Person-E0284", "title": "IC", "department": "Marketing", "level": "L1", "fill": "#9C7CA5", "children": []}]}, {"id": "E0114", "name": "Person-E0114", "title": "Director", "department": "Sales", "level": "L3", "fill": "#4A6FA5", "children": [{"id": "E0234", "name": "Person-E0234", "title": "Manager", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": []}]}]}]}]}, {"id": "E0005", "name": "Person-E0005", "title": "IC", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": [{"id": "E0007", "name": "Person-E0007", "title": "VP", "department": "Marketing", "level": "L1", "fill": "#9C7CA5", "children": [{"id": "E0029", "name": "Person-E0029", "title": "Director", "department": "Operations", "level": "L3", "fill": "#E8C547", "children": [{"id": "E0089", "name": "Person-E0089", "title": "Manager", "department": "Marketing", "level": "L4", "fill": "#9C7CA5", "children": [{"id": "E0209", "name": "Person-E0209", "title": "Director", "department": "Marketing", "level": "L1", "fill": "#9C7CA5", "children": []}, {"id": "E0299", "name": "Person-E0299", "title": "Director", "department": "HR", "level": "L5", "fill": "#5B9279", "children": []}]}, {"id": "E0129", "name": "Person-E0129", "title": "IC", "department": "Sales", "level": "L2", "fill": "#4A6FA5", "children": [{"id": "E0159", "name": "Person-E0159", "title": "Manager", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": []}, {"id": "E0249", "name": "Person-E0249", "title": "IC", "department": "Finance", "level": "L2", "fill": "#E27D60", "children": []}]}]}, {"id": "E0043", "name": "Person-E0043", "title": "Director", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": [{"id": "E0063", "name": "Person-E0063", "title": "SVP", "department": "Sales", "level": "L1", "fill": "#4A6FA5", "children": [{"id": "E0183", "name": "Person-E0183", "title": "IC", "department": "Engineering", "level": "L5", "fill": "#1F3A5F", "children": []}, {"id": "E0273", "name": "Person-E0273", "title": "Manager", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": []}]}, {"id": "E0103", "name": "Person-E0103", "title": "Manager", "department": "Operations", "level": "L5", "fill": "#E8C547", "children": [{"id": "E0223", "name": "Person-E0223", "title": "IC", "department": "HR", "level": "L1", "fill": "#5B9279", "children": []}]}, {"id": "E0143", "name": "Person-E0143", "title": "Manager", "department": "Operations", "level": "L5", "fill": "#E8C547", "children": [{"id": "E0173", "name": "Person-E0173", "title": "SVP", "department": "Finance", "level": "L3", "fill": "#E27D60", "children": []}, {"id": "E0263", "name": "Person-E0263", "title": "Director", "department": "Finance", "level": "L3", "fill": "#E27D60", "children": []}]}]}, {"id": "E0057", "name": "Person-E0057", "title": "Director", "department": "Sales", "level": "L5", "fill": "#4A6FA5", "children": [{"id": "E0077", "name": "Person-E0077", "title": "IC", "department": "Engineering", "level": "L4", "fill": "#1F3A5F", "children": [{"id": "E0197", "name": "Person-E0197", "title": "Director", "department": "Finance", "level": "L5", "fill": "#E27D60", "children": []}, {"id": "E0287", "name": "Person-E0287", "title": "VP", "department": "Operations", "level": "L3", "fill": "#E8C547", "children": []}]}, {"id": "E0117", "name": "Person-E0117", "title": "VP", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": [{"id": "E0237", "name": "Person-E0237", "title": "VP", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": []}]}]}]}, {"id": "E0011", "name": "Person-E0011", "title": "VP", "department": "Sales", "level": "L3", "fill": "#4A6FA5", "children": [{"id": "E0033", "name": "Person-E0033", "title": "IC", "department": "Sales", "level": "L3", "fill": "#4A6FA5", "children": [{"id": "E0093", "name": "Person-E0093", "title": "IC", "department": "Finance", "level": "L2", "fill": "#E27D60", "children": [{"id": "E0213", "name": "Person-E0213", "title": "SVP", "department": "Marketing", "level": "L5", "fill": "#9C7CA5", "children": []}]}, {"id": "E0133", "name": "Person-E0133", "title": "IC", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": [{"id": "E0163", "name": "Person-E0163", "title": "VP", "department": "Operations", "level": "L2", "fill": "#E8C547", "children": []}, {"id": "E0253", "name": "Person-E0253", "title": "Manager", "department": "Engineering", "level": "L3", "fill": "#1F3A5F", "children": []}]}]}, {"id": "E0047", "name": "Person-E0047", "title": "Director", "department": "Engineering", "level": "L1", "fill": "#1F3A5F", "children": [{"id": "E0067", "name": "Person-E0067", "title": "Manager", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": [{"id": "E0187", "name": "Person-E0187", "title": "Manager", "department": "Sales", "level": "L3", "fill": "#4A6FA5", "children": []}, {"id": "E0277", "name": "Person-E0277", "title": "IC", "department": "Finance", "level": "L4", "fill": "#E27D60", "children": []}]}, {"id": "E0107", "name": "Person-E0107", "title": "Director", "department": "Engineering", "level": "L5", "fill": "#1F3A5F", "children": [{"id": "E0227", "name": "Person-E0227", "title": "Manager", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": []}]}, {"id": "E0147", "name": "Person-E0147", "title": "SVP", "department": "Engineering", "level": "L3", "fill": "#1F3A5F", "children": [{"id": "E0177", "name": "Person-E0177", "title": "Director", "department": "Marketing", "level": "L1", "fill": "#9C7CA5", "children": []}, {"id": "E0267", "name": "Person-E0267", "title": "VP", "department": "Sales", "level": "L4", "fill": "#4A6FA5", "children": []}]}]}]}, {"id": "E0015", "name": "Person-E0015", "title": "SVP", "department": "Engineering", "level": "L4", "fill": "#1F3A5F", "children": [{"id": "E0023", "name": "Person-E0023", "title": "IC", "department": "HR", "level": "L5", "fill": "#5B9279", "children": [{"id": "E0083", "name": "Person-E0083", "title": "Manager", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": [{"id": "E0203", "name": "Person-E0203", "title": "IC", "department": "Finance", "level": "L2", "fill": "#E27D60", "children": []}, {"id": "E0293", "name": "Person-E0293", "title": "Director", "department": "Marketing", "level": "L1", "fill": "#9C7CA5", "children": []}]}, {"id": "E0123", "name": "Person-E0123", "title": "SVP", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": [{"id": "E0153", "name": "Person-E0153", "title": "IC", "department": "Operations", "level": "L5", "fill": "#E8C547", "children": []}, {"id": "E0243", "name": "Person-E0243", "title": "VP", "department": "Marketing", "level": "L3", "fill": "#9C7CA5", "children": []}]}]}, {"id": "E0037", "name": "Person-E0037", "title": "VP", "department": "Engineering", "level": "L1", "fill": "#1F3A5F", "children": [{"id": "E0097", "name": "Person-E0097", "title": "IC", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": [{"id": "E0217", "name": "Person-E0217", "title": "SVP", "department": "Engineering", "level": "L1", "fill": "#1F3A5F", "children": []}]}, {"id": "E0137", "name": "Person-E0137", "title": "SVP", "department": "Sales", "level": "L5", "fill": "#4A6FA5", "children": [{"id": "E0167", "name": "Person-E0167", "title": "VP", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}, {"id": "E0257", "name": "Person-E0257", "title": "SVP", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": []}]}]}, {"id": "E0051", "name": "Person-E0051", "title": "SVP", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": [{"id": "E0071", "name": "Person-E0071", "title": "Manager", "department": "Marketing", "level": "L5", "fill": "#9C7CA5", "children": [{"id": "E0191", "name": "Person-E0191", "title": "VP", "department": "Finance", "level": "L1", "fill": "#E27D60", "children": []}, {"id": "E0281", "name": "Person-E0281", "title": "VP", "department": "HR", "level": "L5", "fill": "#5B9279", "children": []}]}, {"id": "E0111", "name": "Person-E0111", "title": "IC", "department": "Engineering", "level": "L2", "fill": "#1F3A5F", "children": [{"id": "E0231", "name": "Person-E0231", "title": "Manager", "department": "Operations", "level": "L3", "fill": "#E8C547", "children": []}]}]}]}, {"id": "E0019", "name": "Person-E0019", "title": "IC", "department": "Finance", "level": "L1", "fill": "#E27D60", "children": [{"id": "E0027", "name": "Person-E0027", "title": "Manager", "department": "Marketing", "level": "L2", "fill": "#9C7CA5", "children": [{"id": "E0087", "name": "Person-E0087", "title": "SVP", "department": "Operations", "level": "L5", "fill": "#E8C547", "children": [{"id": "E0207", "name": "Person-E0207", "title": "SVP", "department": "Engineering", "level": "L4", "fill": "#1F3A5F", "children": []}, {"id": "E0297", "name": "Person-E0297", "title": "SVP", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}]}, {"id": "E0127", "name": "Person-E0127", "title": "IC", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": [{"id": "E0157", "name": "Person-E0157", "title": "Director", "department": "Operations", "level": "L5", "fill": "#E8C547", "children": []}, {"id": "E0247", "name": "Person-E0247", "title": "Director", "department": "Operations", "level": "L5", "fill": "#E8C547", "children": []}]}]}, {"id": "E0041", "name": "Person-E0041", "title": "IC", "department": "Operations", "level": "L1", "fill": "#E8C547", "children": [{"id": "E0061", "name": "Person-E0061", "title": "SVP", "department": "HR", "level": "L1", "fill": "#5B9279", "children": [{"id": "E0181", "name": "Person-E0181", "title": "Manager", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}, {"id": "E0271", "name": "Person-E0271", "title": "Director", "department": "Finance", "level": "L2", "fill": "#E27D60", "children": []}]}, {"id": "E0101", "name": "Person-E0101", "title": "Manager", "department": "Finance", "level": "L3", "fill": "#E27D60", "children": [{"id": "E0221", "name": "Person-E0221", "title": "Director", "department": "Operations", "level": "L3", "fill": "#E8C547", "children": []}]}, {"id": "E0141", "name": "Person-E0141", "title": "Director", "department": "Finance", "level": "L1", "fill": "#E27D60", "children": [{"id": "E0171", "name": "Person-E0171", "title": "Director", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}, {"id": "E0261", "name": "Person-E0261", "title": "SVP", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}]}]}, {"id": "E0055", "name": "Person-E0055", "title": "SVP", "department": "Sales", "level": "L1", "fill": "#4A6FA5", "children": [{"id": "E0075", "name": "Person-E0075", "title": "Director", "department": "Sales", "level": "L5", "fill": "#4A6FA5", "children": [{"id": "E0195", "name": "Person-E0195", "title": "SVP", "department": "HR", "level": "L3", "fill": "#5B9279", "children": []}, {"id": "E0285", "name": "Person-E0285", "title": "Manager", "department": "Operations", "level": "L4", "fill": "#E8C547", "children": []}]}, {"id": "E0115", "name": "Person-E0115", "title": "VP", "department": "HR", "level": "L3", "fill": "#5B9279", "children": [{"id": "E0235", "name": "Person-E0235", "title": "VP", "department": "Finance", "level": "L1", "fill": "#E27D60", "children": []}]}]}]}]}]};
+  const legendEntries = [{"label": "Engineering", "fill": "#1F3A5F"}, {"label": "Finance", "fill": "#E27D60"}, {"label": "HR", "fill": "#5B9279"}, {"label": "Marketing", "fill": "#9C7CA5"}, {"label": "Operations", "fill": "#E8C547"}, {"label": "Sales", "fill": "#4A6FA5"}];
+
+  // Render legend
+  const legendRows = document.getElementById("legend-rows");
+  if (legendEntries.length === 0) {
+    document.getElementById("legend").style.display = "none";
+  } else {
+    legendEntries.forEach(entry => {
+      const div = document.createElement("div");
+      div.style.margin = "2px 0";
+      div.innerHTML = `<span class="swatch" style="background:${entry.fill}"></span>${entry.label}`;
+      legendRows.appendChild(div);
+    });
+  }
+
+  const container = document.getElementById("chart");
+  const margin = { top: 24, right: 24, bottom: 24, left: 24 };
+  const width = container.clientWidth - margin.left - margin.right;
+  const height = container.clientHeight - margin.top - margin.bottom;
+
+  const svg = d3.select("#chart")
+    .append("svg")
+    .attr("width", container.clientWidth)
+    .attr("height", container.clientHeight);
+
+  const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+  const zoom = d3.zoom()
+    .scaleExtent([0.2, 4])
+    .on("zoom", (event) => g.attr("transform", event.transform));
+  svg.call(zoom);
+
+  const root = d3.hierarchy(treeData, d => d.children);
+  root.x0 = height / 2;
+  root.y0 = 0;
+
+  // Initialize all nodes expanded
+  if (root.children) root.children.forEach(collapseInit);
+
+  function collapseInit(d) {
+    if (d.children) {
+      d._children = d.children;
+      d.children = null;
+      d.children && d.children.forEach(collapseInit);
+    }
+  }
+
+  // Re-expand everything for full view
+  function expandAll(d = root) {
+    if (d._children) {
+      d.children = d._children;
+      d._children = null;
+    }
+    if (d.children) d.children.forEach(expandAll);
+  }
+  function collapseAll(d = root) {
+    if (d.children) {
+      d._children = d.children;
+      d.children = null;
+    }
+    if (d._children) d._children.forEach(collapseAll);
+  }
+
+  const treeLayout = d3.tree().size([height, width]);
+  const linkGen = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+
+  function update(source) {
+    treeLayout(root);
+    const nodes = root.descendants().reverse();
+    const links = root.links();
+
+    // Normalize depth for x spacing
+    nodes.forEach(d => { d.y = d.depth * 220; });
+
+    const node = g.selectAll("g.node")
+      .data(nodes, d => d.id || (d.id = ++i));
+    const nodeEnter = node.enter().append("g")
+      .attr("class", "node")
+      .attr("transform", () => `translate(${source.y0 || source.y},${source.x0 || source.x})`)
+      .on("click", (event, d) => {
+        if (d.children) {
+          d._children = d.children; d.children = null;
+        } else if (d._children) {
+          d.children = d._children; d._children = null;
+        }
+        update(d);
+      });
+
+    nodeEnter.append("circle")
+      .attr("r", 1e-6)
+      .style("fill", d => d.data.fill);
+
+    nodeEnter.append("text")
+      .attr("class", "name")
+      .attr("dy", "-0.25em")
+      .attr("text-anchor", "middle")
+      .text(d => truncate(d.data.name, 18));
+
+    nodeEnter.append("text")
+      .attr("class", "title-text")
+      .attr("dy", "1.0em")
+      .attr("text-anchor", "middle")
+      .text(d => truncate(d.data.title || d.data.department || "", 22));
+
+    const nodeUpdate = nodeEnter.merge(node);
+    nodeUpdate.transition().duration(250)
+      .attr("transform", d => `translate(${d.y},${d.x})`);
+    nodeUpdate.select("circle")
+      .transition().duration(250)
+      .attr("r", d => d._children ? 8 : 6)
+      .style("fill", d => d.data.fill);
+
+    const nodeExit = node.exit().transition().duration(250)
+      .attr("transform", d => `translate(${source.y},${source.x})`).remove();
+    nodeExit.select("circle").attr("r", 1e-6);
+
+    const link = g.selectAll("path.link")
+      .data(links, d => d.target.id);
+    link.enter().insert("path", "g")
+      .attr("class", "link")
+      .attr("d", d => {
+        const o = { x: source.x0 || source.x, y: source.y0 || source.y };
+        return linkGen({ source: o, target: o });
+      })
+      .merge(link)
+      .transition().duration(250)
+      .attr("d", d => linkGen(d));
+    link.exit().transition().duration(250)
+      .attr("d", d => {
+        const o = { x: source.x, y: source.y };
+        return linkGen({ source: o, target: o });
+      }).remove();
+
+    nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+  }
+
+  function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+
+  let i = 0;
+  update(root);
+
+  // Fit initial view
+  const bbox = g.node().getBBox();
+  const fullW = container.clientWidth;
+  const fullH = container.clientHeight;
+  const scale = Math.min(fullW / (bbox.width + 200), fullH / (bbox.height + 100), 1);
+  const tx = (fullW - bbox.width * scale) / 2 - bbox.x * scale;
+  const ty = (fullH - bbox.height * scale) / 2 - bbox.y * scale;
+  svg.transition().duration(500).call(
+    zoom.transform,
+    d3.zoomIdentity.translate(tx, ty).scale(scale)
+  );
+
+  window.chart = {
+    zoomBy(k) { svg.transition().call(zoom.scaleBy, k); },
+    reset() { svg.transition().call(zoom.transform, d3.zoomIdentity); },
+    expandAll() { expandAll(); update(root); },
+    collapseAll() { collapseAll(); update(root); }
+  };
+</script>
+</body>
+</html>

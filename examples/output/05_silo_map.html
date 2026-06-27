@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Organizational Silo Map</title>
+<style>
+  body { margin: 0; font-family: 'DejaVu Sans', sans-serif; background: #FAFAFA; color: #4D4D4D; }
+  #header { padding: 16px 24px; background: white; border-bottom: 1px solid #E5E5E5; }
+  #header h1 { margin: 0; font-size: 18px; font-weight: 600; color: #1F3A5F; }
+  #header .sub { font-size: 12px; color: #A6A6A6; margin-top: 2px; }
+</style>
+</head><body>
+<div id="header">
+  <h1>Organizational Silo Map</h1>
+  <div class="sub">Coloured by Louvain communities · 15 silos</div>
+</div>
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script>function neighbourhoodHighlight(params) {
+  // console.log("in nieghbourhoodhighlight");
+  allNodes = nodes.get({ returnType: "Object" });
+  // originalNodes = JSON.parse(JSON.stringify(allNodes));
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    highlightActive = true;
+    var i, j;
+    var selectedNode = params.nodes[0];
+    var degrees = 2;
+
+    // mark all nodes as hard to read.
+    for (let nodeId in allNodes) {
+      // nodeColors[nodeId] = allNodes[nodeId].color;
+      allNodes[nodeId].color = "rgba(200,200,200,0.5)";
+      if (allNodes[nodeId].hiddenLabel === undefined) {
+        allNodes[nodeId].hiddenLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+    var connectedNodes = network.getConnectedNodes(selectedNode);
+    var allConnectedNodes = [];
+
+    // get the second degree nodes
+    for (i = 1; i < degrees; i++) {
+      for (j = 0; j < connectedNodes.length; j++) {
+        allConnectedNodes = allConnectedNodes.concat(
+          network.getConnectedNodes(connectedNodes[j])
+        );
+      }
+    }
+
+    // all second degree nodes get a different color and their label back
+    for (i = 0; i < allConnectedNodes.length; i++) {
+      // allNodes[allConnectedNodes[i]].color = "pink";
+      allNodes[allConnectedNodes[i]].color = "rgba(150,150,150,0.75)";
+      if (allNodes[allConnectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[allConnectedNodes[i]].label =
+          allNodes[allConnectedNodes[i]].hiddenLabel;
+        allNodes[allConnectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // all first degree nodes get their own color and their label back
+    for (i = 0; i < connectedNodes.length; i++) {
+      // allNodes[connectedNodes[i]].color = undefined;
+      allNodes[connectedNodes[i]].color = nodeColors[connectedNodes[i]];
+      if (allNodes[connectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[connectedNodes[i]].label =
+          allNodes[connectedNodes[i]].hiddenLabel;
+        allNodes[connectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // the main node gets its own color and its label back.
+    // allNodes[selectedNode].color = undefined;
+    allNodes[selectedNode].color = nodeColors[selectedNode];
+    if (allNodes[selectedNode].hiddenLabel !== undefined) {
+      allNodes[selectedNode].label = allNodes[selectedNode].hiddenLabel;
+      allNodes[selectedNode].hiddenLabel = undefined;
+    }
+  } else if (highlightActive === true) {
+    // console.log("highlightActive was true");
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      // allNodes[nodeId].color = "purple";
+      allNodes[nodeId].color = nodeColors[nodeId];
+      // delete allNodes[nodeId].color;
+      if (allNodes[nodeId].hiddenLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].hiddenLabel;
+        allNodes[nodeId].hiddenLabel = undefined;
+      }
+    }
+    highlightActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    // console.log("Nothing was selected");
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        // allNodes[nodeId].color = {};
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function filterHighlight(params) {
+  allNodes = nodes.get({ returnType: "Object" });
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    filterActive = true;
+    let selectedNodes = params.nodes;
+
+    // hiding all nodes and saving the label
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = true;
+      if (allNodes[nodeId].savedLabel === undefined) {
+        allNodes[nodeId].savedLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+
+    for (let i=0; i < selectedNodes.length; i++) {
+      allNodes[selectedNodes[i]].hidden = false;
+      if (allNodes[selectedNodes[i]].savedLabel !== undefined) {
+        allNodes[selectedNodes[i]].label = allNodes[selectedNodes[i]].savedLabel;
+        allNodes[selectedNodes[i]].savedLabel = undefined;
+      }
+    }
+
+  } else if (filterActive === true) {
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = false;
+      if (allNodes[nodeId].savedLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].savedLabel;
+        allNodes[nodeId].savedLabel = undefined;
+      }
+    }
+    filterActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function selectNode(nodes) {
+  network.selectNodes(nodes);
+  neighbourhoodHighlight({ nodes: nodes });
+  return nodes;
+}
+
+function selectNodes(nodes) {
+  network.selectNodes(nodes);
+  filterHighlight({nodes: nodes});
+  return nodes;
+}
+
+function highlightFilter(filter) {
+  let selectedNodes = []
+  let selectedProp = filter['property']
+  if (filter['item'] === 'node') {
+    let allNodes = nodes.get({ returnType: "Object" });
+    for (let nodeId in allNodes) {
+      if (allNodes[nodeId][selectedProp] && filter['value'].includes((allNodes[nodeId][selectedProp]).toString())) {
+        selectedNodes.push(nodeId)
+      }
+    }
+  }
+  else if (filter['item'] === 'edge'){
+    let allEdges = edges.get({returnType: 'object'});
+    // check if the selected property exists for selected edge and select the nodes connected to the edge
+    for (let edge in allEdges) {
+      if (allEdges[edge][selectedProp] && filter['value'].includes((allEdges[edge][selectedProp]).toString())) {
+        selectedNodes.push(allEdges[edge]['from'])
+        selectedNodes.push(allEdges[edge]['to'])
+      }
+    }
+  }
+  selectNodes(selectedNodes)
+}</script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+            
+            
+            
+            
+            
+
+        
+<center>
+<h1>Organizational Silo Map</h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1>Organizational Silo Map</h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 780px;
+                 background-color: white;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+             #loadingBar {
+                 position:absolute;
+                 top:0px;
+                 left:0px;
+                 width: 100%;
+                 height: 780px;
+                 background-color:rgba(200,200,200,0.8);
+                 -webkit-transition: all 0.5s ease;
+                 -moz-transition: all 0.5s ease;
+                 -ms-transition: all 0.5s ease;
+                 -o-transition: all 0.5s ease;
+                 transition: all 0.5s ease;
+                 opacity:1;
+             }
+
+             #bar {
+                 position:absolute;
+                 top:0px;
+                 left:0px;
+                 width:20px;
+                 height:20px;
+                 margin:auto auto auto auto;
+                 border-radius:11px;
+                 border:2px solid rgba(30,30,30,0.05);
+                 background: rgb(0, 173, 246); /* Old browsers */
+                 box-shadow: 2px 0px 4px rgba(0,0,0,0.4);
+             }
+
+             #border {
+                 position:absolute;
+                 top:10px;
+                 left:10px;
+                 width:500px;
+                 height:23px;
+                 margin:auto auto auto auto;
+                 box-shadow: 0px 0px 4px rgba(0,0,0,0.2);
+                 border-radius:10px;
+             }
+
+             #text {
+                 position:absolute;
+                 top:8px;
+                 left:530px;
+                 width:30px;
+                 height:50px;
+                 margin:auto auto auto auto;
+                 font-size:22px;
+                 color: #000000;
+             }
+
+             div.outerBorder {
+                 position:relative;
+                 top:400px;
+                 width:600px;
+                 height:44px;
+                 margin:auto auto auto auto;
+                 border:8px solid rgba(0,0,0,0.1);
+                 background: rgb(252,252,252); /* Old browsers */
+                 background: -moz-linear-gradient(top,  rgba(252,252,252,1) 0%, rgba(237,237,237,1) 100%); /* FF3.6+ */
+                 background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(252,252,252,1)), color-stop(100%,rgba(237,237,237,1))); /* Chrome,Safari4+ */
+                 background: -webkit-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* Chrome10+,Safari5.1+ */
+                 background: -o-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* Opera 11.10+ */
+                 background: -ms-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* IE10+ */
+                 background: linear-gradient(to bottom,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* W3C */
+                 filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#fcfcfc', endColorstr='#ededed',GradientType=0 ); /* IE6-9 */
+                 border-radius:72px;
+                 box-shadow: 0px 0px 10px rgba(0,0,0,0.2);
+             }
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+            <div id="loadingBar">
+              <div class="outerBorder">
+                <div id="text">0%</div>
+                <div id="border">
+                  <div id="bar"></div>
+                </div>
+              </div>
+            </div>
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0002", "label": "E0002", "shape": "dot", "size": 34, "title": "E0002\ndegree = 4\nsilo = 0"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0001", "label": "E0001", "shape": "dot", "size": 34, "title": "E0001\ndegree = 4\nsilo = 0"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0003", "label": "E0003", "shape": "dot", "size": 34, "title": "E0003\ndegree = 4\nsilo = 0"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0004", "label": "E0004", "shape": "dot", "size": 38, "title": "E0004\ndegree = 5\nsilo = 13"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0005", "label": "E0005", "shape": "dot", "size": 38, "title": "E0005\ndegree = 5\nsilo = 10"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0006", "label": "E0006", "shape": "dot", "size": 34, "title": "E0006\ndegree = 4\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0007", "label": "E0007", "shape": "dot", "size": 34, "title": "E0007\ndegree = 4\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0008", "label": "E0008", "shape": "dot", "size": 34, "title": "E0008\ndegree = 4\nsilo = 6"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0009", "label": "E0009", "shape": "dot", "size": 34, "title": "E0009\ndegree = 4\nsilo = 0"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0010", "label": "E0010", "shape": "dot", "size": 30, "title": "E0010\ndegree = 3\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0011", "label": "E0011", "shape": "dot", "size": 30, "title": "E0011\ndegree = 3\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0012", "label": "E0012", "shape": "dot", "size": 34, "title": "E0012\ndegree = 4\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0013", "label": "E0013", "shape": "dot", "size": 34, "title": "E0013\ndegree = 4\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0014", "label": "E0014", "shape": "dot", "size": 34, "title": "E0014\ndegree = 4\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0015", "label": "E0015", "shape": "dot", "size": 34, "title": "E0015\ndegree = 4\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0016", "label": "E0016", "shape": "dot", "size": 34, "title": "E0016\ndegree = 4\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0017", "label": "E0017", "shape": "dot", "size": 34, "title": "E0017\ndegree = 4\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0018", "label": "E0018", "shape": "dot", "size": 34, "title": "E0018\ndegree = 4\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0019", "label": "E0019", "shape": "dot", "size": 34, "title": "E0019\ndegree = 4\nsilo = 11"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0020", "label": "E0020", "shape": "dot", "size": 30, "title": "E0020\ndegree = 3\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0021", "label": "E0021", "shape": "dot", "size": 30, "title": "E0021\ndegree = 3\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0022", "label": "E0022", "shape": "dot", "size": 30, "title": "E0022\ndegree = 3\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0023", "label": "E0023", "shape": "dot", "size": 30, "title": "E0023\ndegree = 3\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0024", "label": "E0024", "shape": "dot", "size": 30, "title": "E0024\ndegree = 3\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0025", "label": "E0025", "shape": "dot", "size": 30, "title": "E0025\ndegree = 3\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0026", "label": "E0026", "shape": "dot", "size": 30, "title": "E0026\ndegree = 3\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0027", "label": "E0027", "shape": "dot", "size": 30, "title": "E0027\ndegree = 3\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0028", "label": "E0028", "shape": "dot", "size": 30, "title": "E0028\ndegree = 3\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0029", "label": "E0029", "shape": "dot", "size": 30, "title": "E0029\ndegree = 3\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0030", "label": "E0030", "shape": "dot", "size": 30, "title": "E0030\ndegree = 3\nsilo = 6"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0031", "label": "E0031", "shape": "dot", "size": 30, "title": "E0031\ndegree = 3\nsilo = 0"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0032", "label": "E0032", "shape": "dot", "size": 30, "title": "E0032\ndegree = 3\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0033", "label": "E0033", "shape": "dot", "size": 30, "title": "E0033\ndegree = 3\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0034", "label": "E0034", "shape": "dot", "size": 30, "title": "E0034\ndegree = 3\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0035", "label": "E0035", "shape": "dot", "size": 30, "title": "E0035\ndegree = 3\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0036", "label": "E0036", "shape": "dot", "size": 30, "title": "E0036\ndegree = 3\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0037", "label": "E0037", "shape": "dot", "size": 30, "title": "E0037\ndegree = 3\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0038", "label": "E0038", "shape": "dot", "size": 30, "title": "E0038\ndegree = 3\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0039", "label": "E0039", "shape": "dot", "size": 30, "title": "E0039\ndegree = 3\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0040", "label": "E0040", "shape": "dot", "size": 34, "title": "E0040\ndegree = 4\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0041", "label": "E0041", "shape": "dot", "size": 34, "title": "E0041\ndegree = 4\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0042", "label": "E0042", "shape": "dot", "size": 34, "title": "E0042\ndegree = 4\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0043", "label": "E0043", "shape": "dot", "size": 34, "title": "E0043\ndegree = 4\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0044", "label": "E0044", "shape": "dot", "size": 34, "title": "E0044\ndegree = 4\nsilo = 6"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0045", "label": "E0045", "shape": "dot", "size": 34, "title": "E0045\ndegree = 4\nsilo = 1"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0046", "label": "E0046", "shape": "dot", "size": 34, "title": "E0046\ndegree = 4\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0047", "label": "E0047", "shape": "dot", "size": 34, "title": "E0047\ndegree = 4\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0048", "label": "E0048", "shape": "dot", "size": 34, "title": "E0048\ndegree = 4\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0049", "label": "E0049", "shape": "dot", "size": 34, "title": "E0049\ndegree = 4\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0050", "label": "E0050", "shape": "dot", "size": 30, "title": "E0050\ndegree = 3\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0051", "label": "E0051", "shape": "dot", "size": 30, "title": "E0051\ndegree = 3\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0052", "label": "E0052", "shape": "dot", "size": 30, "title": "E0052\ndegree = 3\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0053", "label": "E0053", "shape": "dot", "size": 30, "title": "E0053\ndegree = 3\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0054", "label": "E0054", "shape": "dot", "size": 30, "title": "E0054\ndegree = 3\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0055", "label": "E0055", "shape": "dot", "size": 30, "title": "E0055\ndegree = 3\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0056", "label": "E0056", "shape": "dot", "size": 30, "title": "E0056\ndegree = 3\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0057", "label": "E0057", "shape": "dot", "size": 30, "title": "E0057\ndegree = 3\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0058", "label": "E0058", "shape": "dot", "size": 30, "title": "E0058\ndegree = 3\nsilo = 6"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0059", "label": "E0059", "shape": "dot", "size": 30, "title": "E0059\ndegree = 3\nsilo = 0"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0060", "label": "E0060", "shape": "dot", "size": 30, "title": "E0060\ndegree = 3\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0061", "label": "E0061", "shape": "dot", "size": 30, "title": "E0061\ndegree = 3\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0062", "label": "E0062", "shape": "dot", "size": 30, "title": "E0062\ndegree = 3\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0063", "label": "E0063", "shape": "dot", "size": 30, "title": "E0063\ndegree = 3\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0064", "label": "E0064", "shape": "dot", "size": 30, "title": "E0064\ndegree = 3\nsilo = 6"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0065", "label": "E0065", "shape": "dot", "size": 30, "title": "E0065\ndegree = 3\nsilo = 1"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0066", "label": "E0066", "shape": "dot", "size": 30, "title": "E0066\ndegree = 3\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0067", "label": "E0067", "shape": "dot", "size": 30, "title": "E0067\ndegree = 3\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0068", "label": "E0068", "shape": "dot", "size": 30, "title": "E0068\ndegree = 3\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0069", "label": "E0069", "shape": "dot", "size": 30, "title": "E0069\ndegree = 3\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0070", "label": "E0070", "shape": "dot", "size": 30, "title": "E0070\ndegree = 3\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0071", "label": "E0071", "shape": "dot", "size": 30, "title": "E0071\ndegree = 3\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0072", "label": "E0072", "shape": "dot", "size": 30, "title": "E0072\ndegree = 3\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0073", "label": "E0073", "shape": "dot", "size": 30, "title": "E0073\ndegree = 3\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0074", "label": "E0074", "shape": "dot", "size": 30, "title": "E0074\ndegree = 3\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0075", "label": "E0075", "shape": "dot", "size": 30, "title": "E0075\ndegree = 3\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0076", "label": "E0076", "shape": "dot", "size": 30, "title": "E0076\ndegree = 3\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0077", "label": "E0077", "shape": "dot", "size": 30, "title": "E0077\ndegree = 3\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0078", "label": "E0078", "shape": "dot", "size": 30, "title": "E0078\ndegree = 3\nsilo = 6"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0079", "label": "E0079", "shape": "dot", "size": 30, "title": "E0079\ndegree = 3\nsilo = 0"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0080", "label": "E0080", "shape": "dot", "size": 30, "title": "E0080\ndegree = 3\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0081", "label": "E0081", "shape": "dot", "size": 30, "title": "E0081\ndegree = 3\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0082", "label": "E0082", "shape": "dot", "size": 30, "title": "E0082\ndegree = 3\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0083", "label": "E0083", "shape": "dot", "size": 30, "title": "E0083\ndegree = 3\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0084", "label": "E0084", "shape": "dot", "size": 30, "title": "E0084\ndegree = 3\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0085", "label": "E0085", "shape": "dot", "size": 30, "title": "E0085\ndegree = 3\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0086", "label": "E0086", "shape": "dot", "size": 30, "title": "E0086\ndegree = 3\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0087", "label": "E0087", "shape": "dot", "size": 30, "title": "E0087\ndegree = 3\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0088", "label": "E0088", "shape": "dot", "size": 30, "title": "E0088\ndegree = 3\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0089", "label": "E0089", "shape": "dot", "size": 30, "title": "E0089\ndegree = 3\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0090", "label": "E0090", "shape": "dot", "size": 26, "title": "E0090\ndegree = 2\nsilo = 6"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0091", "label": "E0091", "shape": "dot", "size": 26, "title": "E0091\ndegree = 2\nsilo = 0"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0092", "label": "E0092", "shape": "dot", "size": 26, "title": "E0092\ndegree = 2\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0093", "label": "E0093", "shape": "dot", "size": 26, "title": "E0093\ndegree = 2\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0094", "label": "E0094", "shape": "dot", "size": 26, "title": "E0094\ndegree = 2\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0095", "label": "E0095", "shape": "dot", "size": 26, "title": "E0095\ndegree = 2\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0096", "label": "E0096", "shape": "dot", "size": 26, "title": "E0096\ndegree = 2\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0097", "label": "E0097", "shape": "dot", "size": 26, "title": "E0097\ndegree = 2\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0098", "label": "E0098", "shape": "dot", "size": 26, "title": "E0098\ndegree = 2\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0099", "label": "E0099", "shape": "dot", "size": 26, "title": "E0099\ndegree = 2\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0100", "label": "E0100", "shape": "dot", "size": 26, "title": "E0100\ndegree = 2\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0101", "label": "E0101", "shape": "dot", "size": 26, "title": "E0101\ndegree = 2\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0102", "label": "E0102", "shape": "dot", "size": 26, "title": "E0102\ndegree = 2\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0103", "label": "E0103", "shape": "dot", "size": 26, "title": "E0103\ndegree = 2\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0104", "label": "E0104", "shape": "dot", "size": 26, "title": "E0104\ndegree = 2\nsilo = 6"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0105", "label": "E0105", "shape": "dot", "size": 26, "title": "E0105\ndegree = 2\nsilo = 1"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0106", "label": "E0106", "shape": "dot", "size": 26, "title": "E0106\ndegree = 2\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0107", "label": "E0107", "shape": "dot", "size": 26, "title": "E0107\ndegree = 2\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0108", "label": "E0108", "shape": "dot", "size": 26, "title": "E0108\ndegree = 2\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0109", "label": "E0109", "shape": "dot", "size": 26, "title": "E0109\ndegree = 2\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0110", "label": "E0110", "shape": "dot", "size": 26, "title": "E0110\ndegree = 2\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0111", "label": "E0111", "shape": "dot", "size": 26, "title": "E0111\ndegree = 2\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0112", "label": "E0112", "shape": "dot", "size": 26, "title": "E0112\ndegree = 2\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0113", "label": "E0113", "shape": "dot", "size": 26, "title": "E0113\ndegree = 2\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0114", "label": "E0114", "shape": "dot", "size": 26, "title": "E0114\ndegree = 2\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0115", "label": "E0115", "shape": "dot", "size": 26, "title": "E0115\ndegree = 2\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0116", "label": "E0116", "shape": "dot", "size": 26, "title": "E0116\ndegree = 2\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0117", "label": "E0117", "shape": "dot", "size": 26, "title": "E0117\ndegree = 2\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0118", "label": "E0118", "shape": "dot", "size": 26, "title": "E0118\ndegree = 2\nsilo = 6"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0119", "label": "E0119", "shape": "dot", "size": 26, "title": "E0119\ndegree = 2\nsilo = 0"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0120", "label": "E0120", "shape": "dot", "size": 30, "title": "E0120\ndegree = 3\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0121", "label": "E0121", "shape": "dot", "size": 30, "title": "E0121\ndegree = 3\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0122", "label": "E0122", "shape": "dot", "size": 30, "title": "E0122\ndegree = 3\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0123", "label": "E0123", "shape": "dot", "size": 30, "title": "E0123\ndegree = 3\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0124", "label": "E0124", "shape": "dot", "size": 30, "title": "E0124\ndegree = 3\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0125", "label": "E0125", "shape": "dot", "size": 30, "title": "E0125\ndegree = 3\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0126", "label": "E0126", "shape": "dot", "size": 30, "title": "E0126\ndegree = 3\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0127", "label": "E0127", "shape": "dot", "size": 30, "title": "E0127\ndegree = 3\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0128", "label": "E0128", "shape": "dot", "size": 30, "title": "E0128\ndegree = 3\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0129", "label": "E0129", "shape": "dot", "size": 30, "title": "E0129\ndegree = 3\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0130", "label": "E0130", "shape": "dot", "size": 30, "title": "E0130\ndegree = 3\nsilo = 6"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0131", "label": "E0131", "shape": "dot", "size": 30, "title": "E0131\ndegree = 3\nsilo = 0"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0132", "label": "E0132", "shape": "dot", "size": 30, "title": "E0132\ndegree = 3\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0133", "label": "E0133", "shape": "dot", "size": 30, "title": "E0133\ndegree = 3\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0134", "label": "E0134", "shape": "dot", "size": 30, "title": "E0134\ndegree = 3\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0135", "label": "E0135", "shape": "dot", "size": 30, "title": "E0135\ndegree = 3\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0136", "label": "E0136", "shape": "dot", "size": 30, "title": "E0136\ndegree = 3\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0137", "label": "E0137", "shape": "dot", "size": 30, "title": "E0137\ndegree = 3\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0138", "label": "E0138", "shape": "dot", "size": 30, "title": "E0138\ndegree = 3\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0139", "label": "E0139", "shape": "dot", "size": 30, "title": "E0139\ndegree = 3\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0140", "label": "E0140", "shape": "dot", "size": 30, "title": "E0140\ndegree = 3\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0141", "label": "E0141", "shape": "dot", "size": 30, "title": "E0141\ndegree = 3\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0142", "label": "E0142", "shape": "dot", "size": 30, "title": "E0142\ndegree = 3\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0143", "label": "E0143", "shape": "dot", "size": 30, "title": "E0143\ndegree = 3\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0144", "label": "E0144", "shape": "dot", "size": 30, "title": "E0144\ndegree = 3\nsilo = 6"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0145", "label": "E0145", "shape": "dot", "size": 30, "title": "E0145\ndegree = 3\nsilo = 1"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0146", "label": "E0146", "shape": "dot", "size": 30, "title": "E0146\ndegree = 3\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0147", "label": "E0147", "shape": "dot", "size": 30, "title": "E0147\ndegree = 3\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0148", "label": "E0148", "shape": "dot", "size": 30, "title": "E0148\ndegree = 3\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0149", "label": "E0149", "shape": "dot", "size": 30, "title": "E0149\ndegree = 3\nsilo = 2"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0150", "label": "E0150", "shape": "dot", "size": 22, "title": "E0150\ndegree = 1\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0151", "label": "E0151", "shape": "dot", "size": 22, "title": "E0151\ndegree = 1\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0152", "label": "E0152", "shape": "dot", "size": 22, "title": "E0152\ndegree = 1\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0153", "label": "E0153", "shape": "dot", "size": 22, "title": "E0153\ndegree = 1\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0154", "label": "E0154", "shape": "dot", "size": 22, "title": "E0154\ndegree = 1\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0155", "label": "E0155", "shape": "dot", "size": 22, "title": "E0155\ndegree = 1\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0156", "label": "E0156", "shape": "dot", "size": 22, "title": "E0156\ndegree = 1\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0157", "label": "E0157", "shape": "dot", "size": 22, "title": "E0157\ndegree = 1\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0158", "label": "E0158", "shape": "dot", "size": 22, "title": "E0158\ndegree = 1\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0159", "label": "E0159", "shape": "dot", "size": 22, "title": "E0159\ndegree = 1\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0160", "label": "E0160", "shape": "dot", "size": 22, "title": "E0160\ndegree = 1\nsilo = 6"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0161", "label": "E0161", "shape": "dot", "size": 22, "title": "E0161\ndegree = 1\nsilo = 0"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0162", "label": "E0162", "shape": "dot", "size": 22, "title": "E0162\ndegree = 1\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0163", "label": "E0163", "shape": "dot", "size": 22, "title": "E0163\ndegree = 1\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0164", "label": "E0164", "shape": "dot", "size": 22, "title": "E0164\ndegree = 1\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0165", "label": "E0165", "shape": "dot", "size": 22, "title": "E0165\ndegree = 1\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0166", "label": "E0166", "shape": "dot", "size": 22, "title": "E0166\ndegree = 1\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0167", "label": "E0167", "shape": "dot", "size": 22, "title": "E0167\ndegree = 1\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0168", "label": "E0168", "shape": "dot", "size": 22, "title": "E0168\ndegree = 1\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0169", "label": "E0169", "shape": "dot", "size": 22, "title": "E0169\ndegree = 1\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0170", "label": "E0170", "shape": "dot", "size": 22, "title": "E0170\ndegree = 1\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0171", "label": "E0171", "shape": "dot", "size": 22, "title": "E0171\ndegree = 1\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0172", "label": "E0172", "shape": "dot", "size": 22, "title": "E0172\ndegree = 1\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0173", "label": "E0173", "shape": "dot", "size": 22, "title": "E0173\ndegree = 1\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0174", "label": "E0174", "shape": "dot", "size": 22, "title": "E0174\ndegree = 1\nsilo = 6"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0175", "label": "E0175", "shape": "dot", "size": 22, "title": "E0175\ndegree = 1\nsilo = 1"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0176", "label": "E0176", "shape": "dot", "size": 22, "title": "E0176\ndegree = 1\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0177", "label": "E0177", "shape": "dot", "size": 22, "title": "E0177\ndegree = 1\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0178", "label": "E0178", "shape": "dot", "size": 22, "title": "E0178\ndegree = 1\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0179", "label": "E0179", "shape": "dot", "size": 22, "title": "E0179\ndegree = 1\nsilo = 2"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0180", "label": "E0180", "shape": "dot", "size": 22, "title": "E0180\ndegree = 1\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0181", "label": "E0181", "shape": "dot", "size": 22, "title": "E0181\ndegree = 1\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0182", "label": "E0182", "shape": "dot", "size": 22, "title": "E0182\ndegree = 1\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0183", "label": "E0183", "shape": "dot", "size": 22, "title": "E0183\ndegree = 1\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0184", "label": "E0184", "shape": "dot", "size": 22, "title": "E0184\ndegree = 1\nsilo = 6"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0185", "label": "E0185", "shape": "dot", "size": 22, "title": "E0185\ndegree = 1\nsilo = 1"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0186", "label": "E0186", "shape": "dot", "size": 22, "title": "E0186\ndegree = 1\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0187", "label": "E0187", "shape": "dot", "size": 22, "title": "E0187\ndegree = 1\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0188", "label": "E0188", "shape": "dot", "size": 22, "title": "E0188\ndegree = 1\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0189", "label": "E0189", "shape": "dot", "size": 22, "title": "E0189\ndegree = 1\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0190", "label": "E0190", "shape": "dot", "size": 22, "title": "E0190\ndegree = 1\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0191", "label": "E0191", "shape": "dot", "size": 22, "title": "E0191\ndegree = 1\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0192", "label": "E0192", "shape": "dot", "size": 22, "title": "E0192\ndegree = 1\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0193", "label": "E0193", "shape": "dot", "size": 22, "title": "E0193\ndegree = 1\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0194", "label": "E0194", "shape": "dot", "size": 22, "title": "E0194\ndegree = 1\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0195", "label": "E0195", "shape": "dot", "size": 22, "title": "E0195\ndegree = 1\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0196", "label": "E0196", "shape": "dot", "size": 22, "title": "E0196\ndegree = 1\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0197", "label": "E0197", "shape": "dot", "size": 22, "title": "E0197\ndegree = 1\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0198", "label": "E0198", "shape": "dot", "size": 22, "title": "E0198\ndegree = 1\nsilo = 6"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0199", "label": "E0199", "shape": "dot", "size": 22, "title": "E0199\ndegree = 1\nsilo = 0"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0200", "label": "E0200", "shape": "dot", "size": 22, "title": "E0200\ndegree = 1\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0201", "label": "E0201", "shape": "dot", "size": 22, "title": "E0201\ndegree = 1\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0202", "label": "E0202", "shape": "dot", "size": 22, "title": "E0202\ndegree = 1\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0203", "label": "E0203", "shape": "dot", "size": 22, "title": "E0203\ndegree = 1\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0204", "label": "E0204", "shape": "dot", "size": 22, "title": "E0204\ndegree = 1\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0205", "label": "E0205", "shape": "dot", "size": 22, "title": "E0205\ndegree = 1\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0206", "label": "E0206", "shape": "dot", "size": 22, "title": "E0206\ndegree = 1\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0207", "label": "E0207", "shape": "dot", "size": 22, "title": "E0207\ndegree = 1\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0208", "label": "E0208", "shape": "dot", "size": 22, "title": "E0208\ndegree = 1\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0209", "label": "E0209", "shape": "dot", "size": 22, "title": "E0209\ndegree = 1\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0210", "label": "E0210", "shape": "dot", "size": 22, "title": "E0210\ndegree = 1\nsilo = 6"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0211", "label": "E0211", "shape": "dot", "size": 22, "title": "E0211\ndegree = 1\nsilo = 0"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0212", "label": "E0212", "shape": "dot", "size": 22, "title": "E0212\ndegree = 1\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0213", "label": "E0213", "shape": "dot", "size": 22, "title": "E0213\ndegree = 1\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0214", "label": "E0214", "shape": "dot", "size": 22, "title": "E0214\ndegree = 1\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0215", "label": "E0215", "shape": "dot", "size": 22, "title": "E0215\ndegree = 1\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0216", "label": "E0216", "shape": "dot", "size": 22, "title": "E0216\ndegree = 1\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0217", "label": "E0217", "shape": "dot", "size": 22, "title": "E0217\ndegree = 1\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0218", "label": "E0218", "shape": "dot", "size": 22, "title": "E0218\ndegree = 1\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0219", "label": "E0219", "shape": "dot", "size": 22, "title": "E0219\ndegree = 1\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0220", "label": "E0220", "shape": "dot", "size": 22, "title": "E0220\ndegree = 1\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0221", "label": "E0221", "shape": "dot", "size": 22, "title": "E0221\ndegree = 1\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0222", "label": "E0222", "shape": "dot", "size": 22, "title": "E0222\ndegree = 1\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0223", "label": "E0223", "shape": "dot", "size": 22, "title": "E0223\ndegree = 1\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0224", "label": "E0224", "shape": "dot", "size": 22, "title": "E0224\ndegree = 1\nsilo = 6"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0225", "label": "E0225", "shape": "dot", "size": 22, "title": "E0225\ndegree = 1\nsilo = 1"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0226", "label": "E0226", "shape": "dot", "size": 22, "title": "E0226\ndegree = 1\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0227", "label": "E0227", "shape": "dot", "size": 22, "title": "E0227\ndegree = 1\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0228", "label": "E0228", "shape": "dot", "size": 22, "title": "E0228\ndegree = 1\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0229", "label": "E0229", "shape": "dot", "size": 22, "title": "E0229\ndegree = 1\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0230", "label": "E0230", "shape": "dot", "size": 22, "title": "E0230\ndegree = 1\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0231", "label": "E0231", "shape": "dot", "size": 22, "title": "E0231\ndegree = 1\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0232", "label": "E0232", "shape": "dot", "size": 22, "title": "E0232\ndegree = 1\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0233", "label": "E0233", "shape": "dot", "size": 22, "title": "E0233\ndegree = 1\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0234", "label": "E0234", "shape": "dot", "size": 22, "title": "E0234\ndegree = 1\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0235", "label": "E0235", "shape": "dot", "size": 22, "title": "E0235\ndegree = 1\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0236", "label": "E0236", "shape": "dot", "size": 22, "title": "E0236\ndegree = 1\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0237", "label": "E0237", "shape": "dot", "size": 22, "title": "E0237\ndegree = 1\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0238", "label": "E0238", "shape": "dot", "size": 22, "title": "E0238\ndegree = 1\nsilo = 6"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0239", "label": "E0239", "shape": "dot", "size": 22, "title": "E0239\ndegree = 1\nsilo = 0"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0240", "label": "E0240", "shape": "dot", "size": 22, "title": "E0240\ndegree = 1\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0241", "label": "E0241", "shape": "dot", "size": 22, "title": "E0241\ndegree = 1\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0242", "label": "E0242", "shape": "dot", "size": 22, "title": "E0242\ndegree = 1\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0243", "label": "E0243", "shape": "dot", "size": 22, "title": "E0243\ndegree = 1\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0244", "label": "E0244", "shape": "dot", "size": 22, "title": "E0244\ndegree = 1\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0245", "label": "E0245", "shape": "dot", "size": 22, "title": "E0245\ndegree = 1\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0246", "label": "E0246", "shape": "dot", "size": 22, "title": "E0246\ndegree = 1\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0247", "label": "E0247", "shape": "dot", "size": 22, "title": "E0247\ndegree = 1\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0248", "label": "E0248", "shape": "dot", "size": 22, "title": "E0248\ndegree = 1\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0249", "label": "E0249", "shape": "dot", "size": 22, "title": "E0249\ndegree = 1\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0250", "label": "E0250", "shape": "dot", "size": 22, "title": "E0250\ndegree = 1\nsilo = 6"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0251", "label": "E0251", "shape": "dot", "size": 22, "title": "E0251\ndegree = 1\nsilo = 0"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0252", "label": "E0252", "shape": "dot", "size": 22, "title": "E0252\ndegree = 1\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0253", "label": "E0253", "shape": "dot", "size": 22, "title": "E0253\ndegree = 1\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0254", "label": "E0254", "shape": "dot", "size": 22, "title": "E0254\ndegree = 1\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0255", "label": "E0255", "shape": "dot", "size": 22, "title": "E0255\ndegree = 1\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0256", "label": "E0256", "shape": "dot", "size": 22, "title": "E0256\ndegree = 1\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0257", "label": "E0257", "shape": "dot", "size": 22, "title": "E0257\ndegree = 1\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0258", "label": "E0258", "shape": "dot", "size": 22, "title": "E0258\ndegree = 1\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0259", "label": "E0259", "shape": "dot", "size": 22, "title": "E0259\ndegree = 1\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0260", "label": "E0260", "shape": "dot", "size": 22, "title": "E0260\ndegree = 1\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0261", "label": "E0261", "shape": "dot", "size": 22, "title": "E0261\ndegree = 1\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0262", "label": "E0262", "shape": "dot", "size": 22, "title": "E0262\ndegree = 1\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0263", "label": "E0263", "shape": "dot", "size": 22, "title": "E0263\ndegree = 1\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0264", "label": "E0264", "shape": "dot", "size": 22, "title": "E0264\ndegree = 1\nsilo = 6"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0265", "label": "E0265", "shape": "dot", "size": 22, "title": "E0265\ndegree = 1\nsilo = 1"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0266", "label": "E0266", "shape": "dot", "size": 22, "title": "E0266\ndegree = 1\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0267", "label": "E0267", "shape": "dot", "size": 22, "title": "E0267\ndegree = 1\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0268", "label": "E0268", "shape": "dot", "size": 22, "title": "E0268\ndegree = 1\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0269", "label": "E0269", "shape": "dot", "size": 22, "title": "E0269\ndegree = 1\nsilo = 2"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0270", "label": "E0270", "shape": "dot", "size": 22, "title": "E0270\ndegree = 1\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0271", "label": "E0271", "shape": "dot", "size": 22, "title": "E0271\ndegree = 1\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0272", "label": "E0272", "shape": "dot", "size": 22, "title": "E0272\ndegree = 1\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0273", "label": "E0273", "shape": "dot", "size": 22, "title": "E0273\ndegree = 1\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0274", "label": "E0274", "shape": "dot", "size": 22, "title": "E0274\ndegree = 1\nsilo = 6"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0275", "label": "E0275", "shape": "dot", "size": 22, "title": "E0275\ndegree = 1\nsilo = 1"}, {"color": "#E27D60", "font": {"color": "#4D4D4D"}, "id": "E0276", "label": "E0276", "shape": "dot", "size": 22, "title": "E0276\ndegree = 1\nsilo = 13"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0277", "label": "E0277", "shape": "dot", "size": 22, "title": "E0277\ndegree = 1\nsilo = 14"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0278", "label": "E0278", "shape": "dot", "size": 22, "title": "E0278\ndegree = 1\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0279", "label": "E0279", "shape": "dot", "size": 22, "title": "E0279\ndegree = 1\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0280", "label": "E0280", "shape": "dot", "size": 22, "title": "E0280\ndegree = 1\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0281", "label": "E0281", "shape": "dot", "size": 22, "title": "E0281\ndegree = 1\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0282", "label": "E0282", "shape": "dot", "size": 22, "title": "E0282\ndegree = 1\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0283", "label": "E0283", "shape": "dot", "size": 22, "title": "E0283\ndegree = 1\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0284", "label": "E0284", "shape": "dot", "size": 22, "title": "E0284\ndegree = 1\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0285", "label": "E0285", "shape": "dot", "size": 22, "title": "E0285\ndegree = 1\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0286", "label": "E0286", "shape": "dot", "size": 22, "title": "E0286\ndegree = 1\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0287", "label": "E0287", "shape": "dot", "size": 22, "title": "E0287\ndegree = 1\nsilo = 10"}, {"color": "#C44536", "font": {"color": "#4D4D4D"}, "id": "E0288", "label": "E0288", "shape": "dot", "size": 22, "title": "E0288\ndegree = 1\nsilo = 6"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0289", "label": "E0289", "shape": "dot", "size": 22, "title": "E0289\ndegree = 1\nsilo = 0"}, {"color": "#8C7853", "font": {"color": "#4D4D4D"}, "id": "E0290", "label": "E0290", "shape": "dot", "size": 22, "title": "E0290\ndegree = 1\nsilo = 8"}, {"color": "#5B9279", "font": {"color": "#4D4D4D"}, "id": "E0291", "label": "E0291", "shape": "dot", "size": 22, "title": "E0291\ndegree = 1\nsilo = 2"}, {"color": "#E8C547", "font": {"color": "#4D4D4D"}, "id": "E0292", "label": "E0292", "shape": "dot", "size": 22, "title": "E0292\ndegree = 1\nsilo = 4"}, {"color": "#7FA0C9", "font": {"color": "#4D4D4D"}, "id": "E0293", "label": "E0293", "shape": "dot", "size": 22, "title": "E0293\ndegree = 1\nsilo = 7"}, {"color": "#41B3A3", "font": {"color": "#4D4D4D"}, "id": "E0294", "label": "E0294", "shape": "dot", "size": 22, "title": "E0294\ndegree = 1\nsilo = 9"}, {"color": "#9C7CA5", "font": {"color": "#4D4D4D"}, "id": "E0295", "label": "E0295", "shape": "dot", "size": 22, "title": "E0295\ndegree = 1\nsilo = 3"}, {"color": "#4A6FA5", "font": {"color": "#4D4D4D"}, "id": "E0296", "label": "E0296", "shape": "dot", "size": 22, "title": "E0296\ndegree = 1\nsilo = 5"}, {"color": "#5E548E", "font": {"color": "#4D4D4D"}, "id": "E0297", "label": "E0297", "shape": "dot", "size": 22, "title": "E0297\ndegree = 1\nsilo = 11"}, {"color": "#1F3A5F", "font": {"color": "#4D4D4D"}, "id": "E0298", "label": "E0298", "shape": "dot", "size": 22, "title": "E0298\ndegree = 1\nsilo = 12"}, {"color": "#D4A5A5", "font": {"color": "#4D4D4D"}, "id": "E0299", "label": "E0299", "shape": "dot", "size": 22, "title": "E0299\ndegree = 1\nsilo = 10"}]);
+                  edges = new vis.DataSet([{"arrows": "to", "color": "#BFBFBF", "from": "E0002", "to": "E0001"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0003", "to": "E0001"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0004", "to": "E0001"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0005", "to": "E0001"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0006", "to": "E0004"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0007", "to": "E0005"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0008", "to": "E0002"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0009", "to": "E0003"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0010", "to": "E0004"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0011", "to": "E0005"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0012", "to": "E0002"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0013", "to": "E0003"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0014", "to": "E0004"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0015", "to": "E0005"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0016", "to": "E0002"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0017", "to": "E0003"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0018", "to": "E0004"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0019", "to": "E0005"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0020", "to": "E0012"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0021", "to": "E0013"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0022", "to": "E0014"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0023", "to": "E0015"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0024", "to": "E0016"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0025", "to": "E0017"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0026", "to": "E0018"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0027", "to": "E0019"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0028", "to": "E0006"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0029", "to": "E0007"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0030", "to": "E0008"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0031", "to": "E0009"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0032", "to": "E0010"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0033", "to": "E0011"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0034", "to": "E0012"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0035", "to": "E0013"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0036", "to": "E0014"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0037", "to": "E0015"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0038", "to": "E0016"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0039", "to": "E0017"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0040", "to": "E0018"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0041", "to": "E0019"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0042", "to": "E0006"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0043", "to": "E0007"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0044", "to": "E0008"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0045", "to": "E0009"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0046", "to": "E0010"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0047", "to": "E0011"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0048", "to": "E0012"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0049", "to": "E0013"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0050", "to": "E0014"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0051", "to": "E0015"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0052", "to": "E0016"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0053", "to": "E0017"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0054", "to": "E0018"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0055", "to": "E0019"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0056", "to": "E0006"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0057", "to": "E0007"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0058", "to": "E0008"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0059", "to": "E0009"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0060", "to": "E0040"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0061", "to": "E0041"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0062", "to": "E0042"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0063", "to": "E0043"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0064", "to": "E0044"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0065", "to": "E0045"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0066", "to": "E0046"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0067", "to": "E0047"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0068", "to": "E0048"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0069", "to": "E0049"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0070", "to": "E0050"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0071", "to": "E0051"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0072", "to": "E0052"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0073", "to": "E0053"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0074", "to": "E0054"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0075", "to": "E0055"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0076", "to": "E0056"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0077", "to": "E0057"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0078", "to": "E0058"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0079", "to": "E0059"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0080", "to": "E0020"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0081", "to": "E0021"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0082", "to": "E0022"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0083", "to": "E0023"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0084", "to": "E0024"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0085", "to": "E0025"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0086", "to": "E0026"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0087", "to": "E0027"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0088", "to": "E0028"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0089", "to": "E0029"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0090", "to": "E0030"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0091", "to": "E0031"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0092", "to": "E0032"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0093", "to": "E0033"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0094", "to": "E0034"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0095", "to": "E0035"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0096", "to": "E0036"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0097", "to": "E0037"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0098", "to": "E0038"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0099", "to": "E0039"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0100", "to": "E0040"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0101", "to": "E0041"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0102", "to": "E0042"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0103", "to": "E0043"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0104", "to": "E0044"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0105", "to": "E0045"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0106", "to": "E0046"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0107", "to": "E0047"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0108", "to": "E0048"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0109", "to": "E0049"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0110", "to": "E0050"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0111", "to": "E0051"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0112", "to": "E0052"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0113", "to": "E0053"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0114", "to": "E0054"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0115", "to": "E0055"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0116", "to": "E0056"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0117", "to": "E0057"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0118", "to": "E0058"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0119", "to": "E0059"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0120", "to": "E0020"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0121", "to": "E0021"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0122", "to": "E0022"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0123", "to": "E0023"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0124", "to": "E0024"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0125", "to": "E0025"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0126", "to": "E0026"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0127", "to": "E0027"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0128", "to": "E0028"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0129", "to": "E0029"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0130", "to": "E0030"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0131", "to": "E0031"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0132", "to": "E0032"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0133", "to": "E0033"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0134", "to": "E0034"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0135", "to": "E0035"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0136", "to": "E0036"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0137", "to": "E0037"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0138", "to": "E0038"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0139", "to": "E0039"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0140", "to": "E0040"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0141", "to": "E0041"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0142", "to": "E0042"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0143", "to": "E0043"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0144", "to": "E0044"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0145", "to": "E0045"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0146", "to": "E0046"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0147", "to": "E0047"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0148", "to": "E0048"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0149", "to": "E0049"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0150", "to": "E0120"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0151", "to": "E0121"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0152", "to": "E0122"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0153", "to": "E0123"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0154", "to": "E0124"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0155", "to": "E0125"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0156", "to": "E0126"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0157", "to": "E0127"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0158", "to": "E0128"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0159", "to": "E0129"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0160", "to": "E0130"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0161", "to": "E0131"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0162", "to": "E0132"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0163", "to": "E0133"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0164", "to": "E0134"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0165", "to": "E0135"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0166", "to": "E0136"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0167", "to": "E0137"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0168", "to": "E0138"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0169", "to": "E0139"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0170", "to": "E0140"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0171", "to": "E0141"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0172", "to": "E0142"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0173", "to": "E0143"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0174", "to": "E0144"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0175", "to": "E0145"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0176", "to": "E0146"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0177", "to": "E0147"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0178", "to": "E0148"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0179", "to": "E0149"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0180", "to": "E0060"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0181", "to": "E0061"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0182", "to": "E0062"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0183", "to": "E0063"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0184", "to": "E0064"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0185", "to": "E0065"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0186", "to": "E0066"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0187", "to": "E0067"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0188", "to": "E0068"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0189", "to": "E0069"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0190", "to": "E0070"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0191", "to": "E0071"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0192", "to": "E0072"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0193", "to": "E0073"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0194", "to": "E0074"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0195", "to": "E0075"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0196", "to": "E0076"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0197", "to": "E0077"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0198", "to": "E0078"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0199", "to": "E0079"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0200", "to": "E0080"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0201", "to": "E0081"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0202", "to": "E0082"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0203", "to": "E0083"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0204", "to": "E0084"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0205", "to": "E0085"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0206", "to": "E0086"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0207", "to": "E0087"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0208", "to": "E0088"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0209", "to": "E0089"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0210", "to": "E0090"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0211", "to": "E0091"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0212", "to": "E0092"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0213", "to": "E0093"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0214", "to": "E0094"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0215", "to": "E0095"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0216", "to": "E0096"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0217", "to": "E0097"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0218", "to": "E0098"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0219", "to": "E0099"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0220", "to": "E0100"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0221", "to": "E0101"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0222", "to": "E0102"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0223", "to": "E0103"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0224", "to": "E0104"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0225", "to": "E0105"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0226", "to": "E0106"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0227", "to": "E0107"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0228", "to": "E0108"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0229", "to": "E0109"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0230", "to": "E0110"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0231", "to": "E0111"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0232", "to": "E0112"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0233", "to": "E0113"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0234", "to": "E0114"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0235", "to": "E0115"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0236", "to": "E0116"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0237", "to": "E0117"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0238", "to": "E0118"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0239", "to": "E0119"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0240", "to": "E0120"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0241", "to": "E0121"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0242", "to": "E0122"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0243", "to": "E0123"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0244", "to": "E0124"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0245", "to": "E0125"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0246", "to": "E0126"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0247", "to": "E0127"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0248", "to": "E0128"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0249", "to": "E0129"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0250", "to": "E0130"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0251", "to": "E0131"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0252", "to": "E0132"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0253", "to": "E0133"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0254", "to": "E0134"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0255", "to": "E0135"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0256", "to": "E0136"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0257", "to": "E0137"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0258", "to": "E0138"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0259", "to": "E0139"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0260", "to": "E0140"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0261", "to": "E0141"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0262", "to": "E0142"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0263", "to": "E0143"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0264", "to": "E0144"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0265", "to": "E0145"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0266", "to": "E0146"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0267", "to": "E0147"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0268", "to": "E0148"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0269", "to": "E0149"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0270", "to": "E0060"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0271", "to": "E0061"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0272", "to": "E0062"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0273", "to": "E0063"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0274", "to": "E0064"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0275", "to": "E0065"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0276", "to": "E0066"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0277", "to": "E0067"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0278", "to": "E0068"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0279", "to": "E0069"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0280", "to": "E0070"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0281", "to": "E0071"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0282", "to": "E0072"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0283", "to": "E0073"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0284", "to": "E0074"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0285", "to": "E0075"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0286", "to": "E0076"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0287", "to": "E0077"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0288", "to": "E0078"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0289", "to": "E0079"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0290", "to": "E0080"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0291", "to": "E0081"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0292", "to": "E0082"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0293", "to": "E0083"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0294", "to": "E0084"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0295", "to": "E0085"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0296", "to": "E0086"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0297", "to": "E0087"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0298", "to": "E0088"}, {"arrows": "to", "color": "#BFBFBF", "from": "E0299", "to": "E0089"}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {
+    "configure": {
+        "enabled": false
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": true,
+            "type": "dynamic"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+                      network.on("stabilizationProgress", function(params) {
+                          document.getElementById('loadingBar').removeAttribute("style");
+                          var maxWidth = 496;
+                          var minWidth = 20;
+                          var widthFactor = params.iterations/params.total;
+                          var width = Math.max(minWidth,maxWidth * widthFactor);
+                          document.getElementById('bar').style.width = width + 'px';
+                          document.getElementById('text').innerHTML = Math.round(widthFactor*100) + '%';
+                      });
+                      network.once("stabilizationIterationsDone", function() {
+                          document.getElementById('text').innerHTML = '100%';
+                          document.getElementById('bar').style.width = '496px';
+                          document.getElementById('loadingBar').style.opacity = 0;
+                          // really clean the dom element
+                          setTimeout(function () {document.getElementById('loadingBar').style.display = 'none';}, 500);
+                      });
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>
+</body></html>

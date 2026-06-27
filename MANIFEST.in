@@ -1,0 +1,10 @@
+include LICENSE
+include README.md
+include CHANGELOG.md
+include SECURITY.md
+include CODE_OF_CONDUCT.md
+include CONTRIBUTING.md
+include MANIFEST.in
+recursive-include src/pyduck_ona_viz py.typed
+recursive-include docs *.md *.yml
+recursive-include examples *.py *.md *.ipynb

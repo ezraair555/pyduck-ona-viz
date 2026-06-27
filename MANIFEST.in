@@ -8,3 +8,8 @@ include MANIFEST.in
 recursive-include src/pyduck_ona_viz py.typed
 recursive-include docs *.md *.yml
 recursive-include examples *.py *.md *.ipynb
+prune src/pyduck_ona_viz.egg-info
+global-exclude *.egg-info
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * .DS_Store

@@ -15,8 +15,14 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
+# Pin hash salt so SVG/metadata are deterministic across runs.
+import matplotlib as mpl  # noqa: E402
+mpl.rcParams["svg.hashsalt"] = "pyduck-ona-viz-demo-v1"
+mpl.rcParams["pdf.fonttype"] = 42
+mpl.rcParams["ps.fonttype"] = 42
+mpl.rcParams["figure.dpi"] = 100
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa: E402
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -30,9 +36,7 @@ OUT = Path(__file__).resolve().parent / "output"
 # Synthetic data builders
 # ---------------------------------------------------------------------------
 
-def build_org(n_per_level: list[int]) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Build a long-form hierarchy plus a per-employee metadata frame."""
-    rng = np.random.default_rng(42)
+def build_org(n_per_level: list[int], rng: np.random.Generator) -> tuple[pd.DataFrame, pd.DataFrame]:
     rows: list[tuple[str, str | None]] = []
     counter = 0
     prev_level: list[str] = []
@@ -69,7 +73,7 @@ def build_org(n_per_level: list[int]) -> tuple[pd.DataFrame, pd.DataFrame]:
     return hierarchy, metadata
 
 
-def compute_stats(hierarchy: pd.DataFrame) -> pd.DataFrame:
+def compute_stats(hierarchy: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
     """Compute manager-level stats from the long-form hierarchy."""
     parent_col = "supervisor_id"
     parents = hierarchy[parent_col].dropna().unique().tolist()
@@ -77,12 +81,12 @@ def compute_stats(hierarchy: pd.DataFrame) -> pd.DataFrame:
     for parent in sorted(parents):
         direct = int((hierarchy[parent_col] == parent).sum())
         rows.append({
-            "manager_id":       parent,
+            "employee_id":      parent,
             "direct_reports":   direct,
             "indirect_reports": max(direct * 2, 0),
             "total_reports":    direct * 3,
             "team_size":        direct + direct * 2,
-            "levels_below":     int(np.random.default_rng(0).integers(1, 5)),
+            "levels_below":     int(rng.integers(1, 5)),
         })
     return pd.DataFrame(rows).sort_values("direct_reports", ascending=False)
 
@@ -112,6 +116,15 @@ def compute_centrality(hierarchy: pd.DataFrame):
         "in_degree": [graph.in_degree(n) for n in nodes],
         "out_degree":[graph.out_degree(n) for n in nodes],
     })
+    # Pin near-tied score ordering so demo output is bit-identical across runs.
+    for _df, _col in [
+        (betweenness, "betweenness"),
+        (pagerank_df, "pagerank"),
+        (eigen, "eigenvector"),
+        (degree_df, "degree"),
+    ]:
+        _df.sort_values([_col, "node_id"], ascending=[False, True], inplace=True)
+        _df.reset_index(drop=True, inplace=True)
     comms = nx.community.louvain_communities(undirected, seed=42)
     cid: dict[str, int] = {}
     for i, c in enumerate(comms):
@@ -121,7 +134,7 @@ def compute_centrality(hierarchy: pd.DataFrame):
     return betweenness, pagerank_df, eigen, degree_df, communities
 
 
-def compute_attrition(metadata: pd.DataFrame) -> pd.DataFrame:
+def compute_attrition(metadata: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
     """Aggregate attrition-style data from the metadata table."""
     rng = np.random.default_rng(7)
     rows = []
@@ -150,10 +163,11 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
 
     print("Building synthetic organization ...")
-    hierarchy, metadata = build_org([1, 4, 14, 40, 90, 150])
-    stats = compute_stats(hierarchy)
+    rng = np.random.default_rng(42)
+    hierarchy, metadata = build_org([1, 4, 14, 40, 90, 150], rng)
+    stats = compute_stats(hierarchy, rng)
     betweenness, pagerank_df, eigen, degree_df, communities = compute_centrality(hierarchy)
-    attrition = compute_attrition(metadata)
+    attrition = compute_attrition(metadata, rng)
     diversity = compute_diversity(metadata)
 
     print(f"  {len(hierarchy)} employees, {len(stats)} managers, "

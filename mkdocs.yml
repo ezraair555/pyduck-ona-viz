@@ -1,0 +1,73 @@
+site_name: pyduck-ona-viz
+site_url: https://ezraair555.github.io/pyduck-ona-viz/
+repo_url: https://github.com/ezraair555/pyduck-ona-viz
+repo_name: ezraair555/pyduck-ona-viz
+
+nav:
+  - Home: index.md
+  - API Reference:
+      - Overview: api/index.md
+      - theme: api/theme.md
+      - span_control: api/span_control.md
+      - org_chart: api/org_chart.md
+      - network_viz: api/network_viz.md
+      - hr_viz: api/hr_viz.md
+      - hierarchy_viz: api/hierarchy_viz.md
+      - dashboard: api/dashboard.md
+  - Changelog: changelog.md
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: true
+            show_object_full_path: false
+            show_category_heading: false
+            show_if_no_docstring: false
+            show_signature: true
+            show_signature_annotations: true
+            separate_signature: true
+            line_length: 100
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ezraair555/pyduck-ona-viz

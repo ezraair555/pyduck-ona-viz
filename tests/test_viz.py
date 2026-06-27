@@ -7,6 +7,7 @@ attributes are correct. These tests intentionally avoid checking
 visual output pixel-by-pixel — they exist to catch import errors,
 API regressions, and broken column-name contracts.
 """
+
 from __future__ import annotations
 
 import matplotlib
@@ -37,6 +38,7 @@ from pyduck_ona_viz import (
 # Synthetic fixtures
 # ---------------------------------------------------------------------------
 
+
 def _make_hierarchy(n_per_level: list[int]) -> pd.DataFrame:
     """Build a long-form hierarchy with n_per_level employees per level."""
     rows: list[tuple[str, str | None]] = []
@@ -64,16 +66,18 @@ def _make_metadata(hierarchy: pd.DataFrame) -> pd.DataFrame:
     levels = ["L1", "L2", "L3", "L4", "L5"]
     rows = []
     for eid in hierarchy["employee_id"]:
-        rows.append({
-            "employee_id": eid,
-            "name":        f"Person-{eid}",
-            "title":       rng.choice(["Manager", "Director", "IC", "VP", "SVP"]),
-            "department":  rng.choice(depts),
-            "level":       rng.choice(levels),
-            "gender":      rng.choice(["F", "M"]),
-            "tenure_years": float(rng.integers(0, 20)),
-            "salary":      float(rng.normal(120_000, 35_000)),
-        })
+        rows.append(
+            {
+                "employee_id": eid,
+                "name": f"Person-{eid}",
+                "title": rng.choice(["Manager", "Director", "IC", "VP", "SVP"]),
+                "department": rng.choice(depts),
+                "level": rng.choice(levels),
+                "gender": rng.choice(["F", "M"]),
+                "tenure_years": float(rng.integers(0, 20)),
+                "salary": float(rng.normal(120_000, 35_000)),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -83,14 +87,16 @@ def _make_hierarchy_stats(hierarchy: pd.DataFrame) -> pd.DataFrame:
     out: list[dict] = []
     for parent in sorted(set(parents)):
         direct = int((hierarchy["supervisor_id"] == parent).sum())
-        out.append({
-            "manager_id":      parent,
-            "direct_reports":  direct,
-            "indirect_reports": max(direct * 2, 0),
-            "total_reports":   direct * 3,
-            "team_size":       direct + direct * 2,
-            "levels_below":    int(np.random.default_rng(0).integers(1, 5)),
-        })
+        out.append(
+            {
+                "employee_id": parent,
+                "direct_reports": direct,
+                "indirect_reports": max(direct * 2, 0),
+                "total_reports": direct * 3,
+                "team_size": direct + direct * 2,
+                "levels_below": int(np.random.default_rng(0).integers(1, 5)),
+            }
+        )
     return pd.DataFrame(out)
 
 
@@ -99,37 +105,45 @@ def _make_centrality_frames(hierarchy: pd.DataFrame):
     ids = hierarchy["employee_id"].tolist()
     n = len(ids)
     return {
-        "betweenness": pd.DataFrame({
-            "node_id":    ids,
-            "betweenness": rng.random(n) / n,
-        }),
-        "pagerank": pd.DataFrame({
-            "node_id":  ids,
-            "pagerank": rng.random(n) / n,
-        }),
-        "eigenvector": pd.DataFrame({
-            "node_id":    ids,
-            "eigenvector": rng.random(n) / n,
-        }),
-        "degree": pd.DataFrame({
-            "node_id":   ids,
-            "degree":     rng.integers(0, 10, n).astype(float),
-            "in_degree":  rng.integers(0, 5, n).astype(float),
-            "out_degree": rng.integers(0, 5, n).astype(float),
-        }),
+        "betweenness": pd.DataFrame(
+            {
+                "node_id": ids,
+                "betweenness": rng.random(n) / n,
+            }
+        ),
+        "pagerank": pd.DataFrame(
+            {
+                "node_id": ids,
+                "pagerank": rng.random(n) / n,
+            }
+        ),
+        "eigenvector": pd.DataFrame(
+            {
+                "node_id": ids,
+                "eigenvector": rng.random(n) / n,
+            }
+        ),
+        "degree": pd.DataFrame(
+            {
+                "node_id": ids,
+                "degree": rng.integers(0, 10, n).astype(float),
+                "in_degree": rng.integers(0, 5, n).astype(float),
+                "out_degree": rng.integers(0, 5, n).astype(float),
+            }
+        ),
     }
 
 
 @pytest.fixture(scope="module")
 def synthetic():
     hierarchy = _make_hierarchy([1, 4, 12, 30, 60])
-    metadata  = _make_metadata(hierarchy)
-    stats     = _make_hierarchy_stats(hierarchy)
+    metadata = _make_metadata(hierarchy)
+    stats = _make_hierarchy_stats(hierarchy)
     centrality = _make_centrality_frames(hierarchy)
     return {
-        "hierarchy":   hierarchy,
-        "metadata":    metadata,
-        "stats":       stats,
+        "hierarchy": hierarchy,
+        "metadata": metadata,
+        "stats": stats,
         **centrality,
     }
 
@@ -137,6 +151,7 @@ def synthetic():
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_org_chart_tree_returns_html(synthetic):
     html = org_chart_tree(
@@ -152,7 +167,8 @@ def test_org_chart_tree_returns_html(synthetic):
 def test_reporting_chain_walk_returns_figure(synthetic):
     employee_id = synthetic["hierarchy"]["employee_id"].iloc[-1]
     fig = reporting_chain_walk(
-        synthetic["hierarchy"], employee_id,
+        synthetic["hierarchy"],
+        employee_id,
         metadata=synthetic["metadata"],
     )
     assert isinstance(fig, mfigure.Figure)
@@ -178,19 +194,19 @@ def test_span_vs_depth_returns_figure(synthetic):
 def test_hierarchy_depth_heatmap_returns_figure(synthetic):
     # Build a wide-form hierarchy from the long one.
     edges = synthetic["hierarchy"].dropna(subset=["supervisor_id"]).copy()
-    wide = (
-        edges.assign(dummy=1)
-        .pivot_table(index="employee_id", columns="supervisor_id",
-                     values="dummy", fill_value=0)
+    wide = edges.assign(dummy=1).pivot_table(
+        index="employee_id", columns="supervisor_id", values="dummy", fill_value=0
     )
     # The above is meaningless for depth — we directly synthesize a wide frame:
     n = 20
-    wide = pd.DataFrame({
-        "employee_id": [f"X{i}" for i in range(n)],
-        "Level_1": [None] + [f"X{i % 2}" for i in range(n - 1)],
-        "Level_2": [None, None] + [f"X{i % 4}" for i in range(n - 2)],
-        "Level_3": [None] * 3 + [f"X{i % 8}" for i in range(n - 3)],
-    })
+    wide = pd.DataFrame(
+        {
+            "employee_id": [f"X{i}" for i in range(n)],
+            "Level_1": [None] + [f"X{i % 2}" for i in range(n - 1)],
+            "Level_2": [None, None] + [f"X{i % 4}" for i in range(n - 2)],
+            "Level_3": [None] * 3 + [f"X{i % 8}" for i in range(n - 3)],
+        }
+    )
     fig = hierarchy_depth_heatmap(wide)
     assert isinstance(fig, mfigure.Figure)
 
@@ -211,7 +227,9 @@ def test_centrality_dashboard_returns_figure(synthetic):
 def test_silo_map_returns_html(synthetic):
     html = silo_map(
         synthetic["hierarchy"],
-        communities=synthetic["pagerank"].assign(community=lambda d: (d["pagerank"] * 5).astype(int)),
+        communities=synthetic["pagerank"].assign(
+            community=lambda d: (d["pagerank"] * 5).astype(int)
+        ),
         metadata=synthetic["metadata"],
         return_html=True,
     )
@@ -222,7 +240,9 @@ def test_silo_map_returns_html(synthetic):
 def test_silo_map_returns_figure(synthetic):
     fig = silo_map(
         synthetic["hierarchy"],
-        communities=synthetic["pagerank"].assign(community=lambda d: (d["pagerank"] * 5).astype(int)),
+        communities=synthetic["pagerank"].assign(
+            community=lambda d: (d["pagerank"] * 5).astype(int)
+        ),
         metadata=synthetic["metadata"],
         return_html=False,
     )
@@ -248,9 +268,9 @@ def test_compensation_equity_returns_figure(synthetic):
     rng = np.random.default_rng(2)
     rows = {
         "tenure_years": rng.uniform(0, 20, 100),
-        "salary":       rng.normal(120_000, 25_000, 100),
-        "gender":       rng.choice(["F", "M"], 100),
-        "employee_id":  [f"E{i:04d}" for i in range(100)],
+        "salary": rng.normal(120_000, 25_000, 100),
+        "gender": rng.choice(["F", "M"], 100),
+        "employee_id": [f"E{i:04d}" for i in range(100)],
     }
     df = pd.DataFrame(rows)
     fig = compensation_equity(df, group_col="gender")
@@ -259,17 +279,21 @@ def test_compensation_equity_returns_figure(synthetic):
 
 def test_summary_dashboard_returns_html(synthetic):
     # Diversity mini-frame
-    diversity = pd.DataFrame({
-        "group": ["F", "M", "NB"],
-        "count": [120, 175, 5],
-    })
+    diversity = pd.DataFrame(
+        {
+            "group": ["F", "M", "NB"],
+            "count": [120, 175, 5],
+        }
+    )
     # Attrition mini-frame
-    attrition = pd.DataFrame({
-        "department": ["Eng"] * 4 + ["Sales"] * 4,
-        "job_level":  [1, 2, 3, 4] * 2,
-        "rate":       [0.10, 0.15, 0.22, 0.30, 0.18, 0.20, 0.28, 0.35],
-        "count":      [10, 8, 6, 4, 12, 9, 5, 3],
-    })
+    attrition = pd.DataFrame(
+        {
+            "department": ["Eng"] * 4 + ["Sales"] * 4,
+            "job_level": [1, 2, 3, 4] * 2,
+            "rate": [0.10, 0.15, 0.22, 0.30, 0.18, 0.20, 0.28, 0.35],
+            "count": [10, 8, 6, 4, 12, 9, 5, 3],
+        }
+    )
     html = summary_dashboard(
         hierarchy_stats=synthetic["stats"],
         betweenness=synthetic["betweenness"],

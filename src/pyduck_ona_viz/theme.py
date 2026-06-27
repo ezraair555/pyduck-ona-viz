@@ -11,9 +11,10 @@ Design language:
     - Minimal chartjunk: no default grid, pared-down spines.
     - DPI: 150 for screen, 300 for print.
 """
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -23,22 +24,25 @@ from matplotlib.colors import LinearSegmentedColormap, to_rgba
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    import matplotlib.axes as mpl_axes
+    import matplotlib.figure as mpl_figure
+
 # ---------------------------------------------------------------------------
 # Color palettes
 # ---------------------------------------------------------------------------
 
 # Primary deep-blue / warm-gray / coral brand palette.
 PALETTE: dict[str, str] = {
-    "primary":    "#1F3A5F",  # deep blue
-    "secondary":  "#4A6FA5",  # mid blue
-    "tertiary":   "#7FA0C9",  # light blue
-    "neutral":    "#4D4D4D",  # warm gray (text)
+    "primary": "#1F3A5F",  # deep blue
+    "secondary": "#4A6FA5",  # mid blue
+    "tertiary": "#7FA0C9",  # light blue
+    "neutral": "#4D4D4D",  # warm gray (text)
     "neutral_lt": "#A6A6A6",  # light warm gray
-    "accent":     "#E27D60",  # coral
-    "accent_lt":  "#F2B6A0",  # light coral
-    "success":    "#5B9279",  # sage green
-    "warning":    "#E8C547",  # amber
-    "danger":     "#C44536",  # brick red
+    "accent": "#E27D60",  # coral
+    "accent_lt": "#F2B6A0",  # light coral
+    "success": "#5B9279",  # sage green
+    "warning": "#E8C547",  # amber
+    "danger": "#C44536",  # brick red
     "background": "#FAFAFA",  # near-white
 }
 
@@ -58,14 +62,14 @@ CATEGORICAL: list[str] = [
     "#5E548E",  # deep purple
 ]
 
-# Sequential blue ramp (light → deep) used for heatmaps and continuous bars.
+# Sequential blue ramp (light -> deep) used for heatmaps and continuous bars.
 BLUES_CMAP = LinearSegmentedColormap.from_list(
     "pona_blues",
     ["#E8EEF5", "#C3D2E5", "#9DB6D3", "#779AC0", "#547DAC", "#356197", "#1F3A5F"],
     N=256,
 )
 
-# Diverging palette: red (negative) → cream (neutral) → green (positive).
+# Diverging palette: red (negative) -> cream (neutral) -> green (positive).
 DIVERG_RYG = LinearSegmentedColormap.from_list(
     "pona_diverg",
     ["#C44536", "#E27D60", "#F5E6D3", "#A8C8A0", "#5B9279", "#2D5F4C"],
@@ -74,14 +78,38 @@ DIVERG_RYG = LinearSegmentedColormap.from_list(
 
 
 def category_colors(n: int) -> list[str]:
-    """Return ``n`` colors from :data:`CATEGORICAL`, cycling if needed."""
+    """Return ``n`` colors from :data:`CATEGORICAL`, cycling if needed.
+
+    Parameters
+    ----------
+    n
+        Number of colors requested.
+
+    Returns
+    -------
+    list[str]
+        List of hex color strings.
+    """
     if n <= 0:
         return []
     return [CATEGORICAL[i % len(CATEGORICAL)] for i in range(n)]
 
 
 def color_for(value: str, lookup: dict[str, str] | None = None) -> str:
-    """Map a category string to a color (deterministic, lookup-aware)."""
+    """Map a category string to a color (deterministic, lookup-aware).
+
+    Parameters
+    ----------
+    value
+        Category value to map to a color.
+    lookup
+        Optional explicit mapping of values to hex colors.
+
+    Returns
+    -------
+    str
+        Hex color string for the category.
+    """
     if lookup and value in lookup:
         return lookup[value]
     return CATEGORICAL[hash(value) % len(CATEGORICAL)]
@@ -94,50 +122,62 @@ def color_for(value: str, lookup: dict[str, str] | None = None) -> str:
 FONT_FAMILY = "DejaVu Sans"
 
 FONT_SIZES: dict[str, int] = {
-    "title":      16,
-    "subtitle":   12,
-    "axis":       11,
-    "tick":       10,
-    "legend":     10,
+    "title": 16,
+    "subtitle": 12,
+    "axis": 11,
+    "tick": 10,
+    "legend": 10,
     "annotation": 9,
-    "body":       9,
+    "body": 9,
 }
 
 
 def apply_default_style() -> None:
     """Apply the package-wide matplotlib rcParams. Called by each function."""
-    mpl.rcParams.update({
-        "font.family":      FONT_FAMILY,
-        "font.size":        FONT_SIZES["body"],
-        "axes.titlesize":   FONT_SIZES["title"],
-        "axes.titleweight": "semibold",
-        "axes.labelsize":   FONT_SIZES["axis"],
-        "axes.labelweight": "medium",
-        "axes.labelcolor":  PALETTE["neutral"],
-        "axes.edgecolor":   PALETTE["neutral_lt"],
-        "axes.linewidth":   0.8,
-        "axes.spines.top":   False,
-        "axes.spines.right": False,
-        "axes.facecolor":   PALETTE["background"],
-        "figure.facecolor": "white",
-        "xtick.labelsize":  FONT_SIZES["tick"],
-        "ytick.labelsize":  FONT_SIZES["tick"],
-        "xtick.color":      PALETTE["neutral"],
-        "ytick.color":      PALETTE["neutral"],
-        "legend.fontsize":  FONT_SIZES["legend"],
-        "legend.frameon":   False,
-        "grid.color":       "#E5E5E5",
-        "grid.linewidth":   0.5,
-        "savefig.dpi":      150,
-        "savefig.bbox":     "tight",
-        "savefig.facecolor": "white",
-    })
+    mpl.rcParams.update(
+        {
+            "font.family": FONT_FAMILY,
+            "font.size": FONT_SIZES["body"],
+            "axes.titlesize": FONT_SIZES["title"],
+            "axes.titleweight": "semibold",
+            "axes.labelsize": FONT_SIZES["axis"],
+            "axes.labelweight": "medium",
+            "axes.labelcolor": PALETTE["neutral"],
+            "axes.edgecolor": PALETTE["neutral_lt"],
+            "axes.linewidth": 0.8,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+            "axes.facecolor": PALETTE["background"],
+            "figure.facecolor": "white",
+            "xtick.labelsize": FONT_SIZES["tick"],
+            "ytick.labelsize": FONT_SIZES["tick"],
+            "xtick.color": PALETTE["neutral"],
+            "ytick.color": PALETTE["neutral"],
+            "legend.fontsize": FONT_SIZES["legend"],
+            "legend.frameon": False,
+            "grid.color": "#E5E5E5",
+            "grid.linewidth": 0.5,
+            "savefig.dpi": 150,
+            "savefig.bbox": "tight",
+            "savefig.facecolor": "white",
+        }
+    )
 
 
-def configure_axes(ax, *, grid: bool = False, grid_axis: str = "y") -> None:
-    """Apply common axis cosmetics (minimal spines, optional grid)."""
+def configure_axes(ax: mpl_axes.Axes, *, grid: bool = False, grid_axis: str = "y") -> None:
+    """Apply common axis cosmetics (minimal spines, optional grid).
+
+    Parameters
+    ----------
+    ax
+        Matplotlib axes to style.
+    grid
+        Whether to draw grid lines.
+    grid_axis
+        Axis along which to draw grid lines (``"x"``, ``"y"``, or ``"both"``).
+    """
     if grid:
-        ax.grid(axis=grid_axis, color="#E5E5E5", linewidth=0.6, zorder=0)
+        ax.grid(axis=grid_axis, color="#E5E5E5", linewidth=0.6, zorder=0)  # type: ignore[arg-type]
         ax.set_axisbelow(True)
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
@@ -146,31 +186,66 @@ def configure_axes(ax, *, grid: bool = False, grid_axis: str = "y") -> None:
 
 
 def annotate_bars(
-    ax,
+    ax: mpl_axes.Axes,
     values: Iterable[float],
     *,
     fmt: str = "{:,.0f}",
     offset: float = 0.01,
     color: str | None = None,
 ) -> None:
-    """Annotate the tip of each bar in a horizontal bar plot."""
+    """Annotate the tip of each bar in a horizontal bar plot.
+
+    Parameters
+    ----------
+    ax
+        Axes containing the bars.
+    values
+        Bar values aligned to ``ax.patches``.
+    fmt
+        Format string for labels.
+    offset
+        Horizontal offset for labels as a fraction of the largest value.
+    color
+        Label color; defaults to the package neutral color.
+    """
+    from matplotlib.patches import Rectangle
+
     color = color or PALETTE["neutral"]
     ymax = max(values) if values else 1
     for bar, v in zip(ax.patches, values, strict=False):
+        if not isinstance(bar, Rectangle):
+            continue
         width = bar.get_width()
         y = bar.get_y() + bar.get_height() / 2
         x_text = width + (ymax * offset if ymax else 0.01)
         ax.text(
-            x_text, y, fmt.format(v),
-            va="center", ha="left",
+            x_text,
+            y,
+            fmt.format(v),
+            va="center",
+            ha="left",
             fontsize=FONT_SIZES["annotation"],
             color=color,
         )
 
 
-def gradient_color(values: np.ndarray | list[float], cmap: str = "viridis") -> list[str]:
-    """Map an array of values to a list of hex colors via a matplotlib colormap."""
-    import matplotlib.cm as cm
+def gradient_color(
+    values: np.ndarray | list[float], cmap: str = "viridis"
+) -> list[tuple[float, float, float, float]]:
+    """Map an array of values to RGBA tuples via a matplotlib colormap.
+
+    Parameters
+    ----------
+    values
+        Numeric values to map to colors.
+    cmap
+        Name of a registered matplotlib colormap.
+
+    Returns
+    -------
+    list[tuple[float, float, float, float]]
+        RGBA tuples in the same order as ``values``.
+    """
     arr = np.asarray(values, dtype=float)
     if arr.size == 0:
         return []
@@ -178,19 +253,32 @@ def gradient_color(values: np.ndarray | list[float], cmap: str = "viridis") -> l
     if hi == lo:
         hi = lo + 1.0
     norm = (arr - lo) / (hi - lo)
-    return [to_rgba(cm.get_cmap(cmap)(v), alpha=1.0) for v in norm]
+    try:
+        cm_obj = mpl.colormaps.get_cmap(cmap)
+    except (ValueError, KeyError):
+        cm_obj = mpl.colormaps.get_cmap("viridis")
+    return [to_rgba(cm_obj(v), alpha=1.0) for v in norm]
 
 
 def gradient_color_palette(
-    values: np.ndarray | list[float], cmap_name: str | None = None,
-) -> list[str]:
-    """Gradient using the package's brand blue ramp by default."""
+    values: np.ndarray | list[float],
+    cmap_name: str | None = None,
+) -> list[tuple[float, float, float, float]]:
+    """Gradient using the package's brand blue ramp by default.
+
+    Parameters
+    ----------
+    values
+        Numeric values to map to colors.
+    cmap_name
+        Optional matplotlib colormap name. Defaults to ``"pona_blues"``.
+
+    Returns
+    -------
+    list[tuple[float, float, float, float]]
+        RGBA tuples in the same order as ``values``.
+    """
     cmap_name = cmap_name or "pona_blues"
-    import matplotlib.cm as cm
-    try:
-        cm_obj = cm.get_cmap(cmap_name) if cmap_name != "pona_blues" else BLUES_CMAP
-    except ValueError:
-        cm_obj = BLUES_CMAP
     arr = np.asarray(values, dtype=float)
     if arr.size == 0:
         return []
@@ -198,12 +286,20 @@ def gradient_color_palette(
     if hi == lo:
         hi = lo + 1.0
     norm = (arr - lo) / (hi - lo)
+    if cmap_name == "pona_blues":
+        cm_obj: Any = BLUES_CMAP
+    else:
+        try:
+            cm_obj = mpl.colormaps.get_cmap(cmap_name)
+        except (ValueError, KeyError):
+            cm_obj = BLUES_CMAP
     return [to_rgba(cm_obj(v), alpha=1.0) for v in norm]
 
 
 # ---------------------------------------------------------------------------
 # Figure factory helpers
 # ---------------------------------------------------------------------------
+
 
 def new_figure(
     figsize: tuple[float, float] = (10.0, 6.0),
@@ -212,12 +308,34 @@ def new_figure(
     nrows: int = 1,
     ncols: int = 1,
     constrained_layout: bool = True,
-    **kwargs,
-):
-    """Create a new figure with the package style applied."""
+    **kwargs: Any,
+) -> tuple[mpl_figure.Figure, mpl_axes.Axes | np.ndarray]:
+    """Create a new figure with the package style applied.
+
+    Parameters
+    ----------
+    figsize
+        Figure size in inches.
+    dpi
+        Figure resolution.
+    nrows
+        Number of subplot rows.
+    ncols
+        Number of subplot columns.
+    constrained_layout
+        Use constrained layout by default.
+    **kwargs
+        Additional arguments forwarded to ``plt.subplots``.
+
+    Returns
+    -------
+    tuple[matplotlib.figure.Figure, matplotlib.axes.Axes | numpy.ndarray]
+        The figure and axes object(s).
+    """
     apply_default_style()
     fig, axes = plt.subplots(
-        nrows=nrows, ncols=ncols,
+        nrows=nrows,
+        ncols=ncols,
         figsize=figsize,
         dpi=dpi,
         constrained_layout=constrained_layout,
@@ -227,14 +345,28 @@ def new_figure(
 
 
 def style_axis_labels(
-    ax,
+    ax: mpl_axes.Axes,
     *,
     xlabel: str | None = None,
     ylabel: str | None = None,
     title: str | None = None,
     subtitle: str | None = None,
 ) -> None:
-    """Apply axis labels and a (sub)title pair in the package style."""
+    """Apply axis labels and a (sub)title pair in the package style.
+
+    Parameters
+    ----------
+    ax
+        Axes to label.
+    xlabel
+        X-axis label text.
+    ylabel
+        Y-axis label text.
+    title
+        Title text.
+    subtitle
+        Subtitle text rendered above the title.
+    """
     if xlabel:
         ax.set_xlabel(xlabel)
     if ylabel:
@@ -243,17 +375,33 @@ def style_axis_labels(
         ax.set_title(title, loc="left", pad=24 if subtitle else 12)
     if subtitle:
         ax.text(
-            0.0, 1.02, subtitle,
+            0.0,
+            1.02,
+            subtitle,
             transform=ax.transAxes,
             fontsize=FONT_SIZES["subtitle"],
             color=PALETTE["neutral_lt"],
-            ha="left", va="bottom",
+            ha="left",
+            va="bottom",
         )
 
 
-def figure_to_html(fig, include_plotlyjs: bool = True) -> str:
-    """Convert a Plotly figure to a standalone HTML string."""
-    return fig.to_html(include_plotlyjs=include_plotlyjs, full_html=True)
+def figure_to_html(fig: Any, include_plotlyjs: bool = True) -> str:
+    """Convert a Plotly figure to a standalone HTML string.
+
+    Parameters
+    ----------
+    fig
+        Plotly figure to convert.
+    include_plotlyjs
+        Whether to embed Plotly JS in the output.
+
+    Returns
+    -------
+    str
+        Standalone HTML string.
+    """
+    return str(fig.to_html(include_plotlyjs=include_plotlyjs, full_html=True))
 
 
 __all__ = [

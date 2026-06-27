@@ -20,6 +20,7 @@ Top-level functions:
 Every public function is also re-exported at the top level of the package so
 that ``from pyduck_ona_viz import org_chart_tree`` is the canonical import.
 """
+
 from __future__ import annotations
 
 from importlib import metadata as _md
@@ -35,12 +36,7 @@ from pyduck_ona_viz.hr_viz import attrition_heatmap, compensation_equity
 from pyduck_ona_viz.network_viz import centrality_dashboard, silo_map
 from pyduck_ona_viz.org_chart import org_chart_tree, reporting_chain_walk
 from pyduck_ona_viz.span_control import span_of_control, span_vs_depth
-from pyduck_ona_viz.theme import (
-    BLUES_CMAP,
-    CATEGORICAL,
-    DIVERG_RYG,
-    PALETTE,
-)
+from pyduck_ona_viz.theme import BLUES_CMAP, CATEGORICAL, DIVERG_RYG, PALETTE
 
 __all__ = [
     "org_chart_tree",

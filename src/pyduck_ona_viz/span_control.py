@@ -6,9 +6,10 @@ Span-of-control visualizations.
 - :func:`span_vs_depth`    - Quadrant bubble chart of span × depth with
                               bubble size = team size.
 """
+
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -22,17 +23,44 @@ from pyduck_ona_viz.theme import (
     style_axis_labels,
 )
 
+if TYPE_CHECKING:
+    import matplotlib.axes as mpl_axes
+    import matplotlib.figure as mpl_figure
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _prepare_stats(
     df: pd.DataFrame,
     *,
     id_col: str = "employee_id",
     metric_col: str = "direct_reports",
-    label_col: str | None = None,
 ) -> pd.DataFrame:
+    """Validate that the input frame has the required identifier and metric columns.
+
+    Parameters
+    ----------
+    df
+        Input statistics DataFrame.
+    id_col
+        Identifier column name.
+    metric_col
+        Metric column name.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The validated input frame.
+
+    Raises
+    ------
+    TypeError
+        If ``df`` is not a DataFrame.
+    KeyError
+        If required columns are missing.
+    """
     if not isinstance(df, pd.DataFrame):
         raise TypeError("`df` must be a pandas DataFrame")
     if id_col not in df.columns:
@@ -46,10 +74,11 @@ def _prepare_stats(
 # Span of control
 # ---------------------------------------------------------------------------
 
+
 def span_of_control(
     df: pd.DataFrame,
     *,
-    id_col: str = "manager_id",
+    id_col: str = "employee_id",
     metric_col: str = "direct_reports",
     label_col: str | None = None,
     metadata: pd.DataFrame | None = None,
@@ -60,7 +89,7 @@ def span_of_control(
     title: str | None = None,
     figsize: tuple[float, float] = (10.0, 7.0),
     return_html: bool = False,
-) -> Any:
+) -> mpl_figure.Figure | str:
     """Plot span of control for the top ``top_n`` managers.
 
     Parameters
@@ -86,7 +115,18 @@ def span_of_control(
 
     Returns
     -------
-    matplotlib.figure.Figure or str (HTML)
+    matplotlib.figure.Figure or str
+        Either a matplotlib Figure or a standalone HTML string.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import pyduck_ona_viz as viz
+    >>> df = pd.DataFrame({
+    ...     "employee_id": ["M1", "M2", "M3"],
+    ...     "direct_reports": [8, 3, 12],
+    ... })
+    >>> fig = viz.span_of_control(df, top_n=10)
     """
     df = _prepare_stats(df, id_col=id_col, metric_col=metric_col)
 
@@ -120,34 +160,45 @@ def span_of_control(
     values = work[metric_col].astype(float).tolist()
 
     # Colors
+    bar_colors: list[str] | str = PALETTE["primary"]
     if color_by_department and dept_lookup:
         depts = [dept_lookup.get(str(k), "Unknown") for k in work[id_col]]
         distinct = sorted(set(depts))
-        palette = {d: category_colors(len(distinct))[i]
-                   for i, d in enumerate(distinct)}
+        palette = {d: category_colors(len(distinct))[i] for i, d in enumerate(distinct)}
         bar_colors = [palette[d] for d in depts]
-    else:
-        bar_colors = PALETTE["primary"]
 
     title = title or f"Span of Control · Top {int(top_n)} managers"
     subtitle = f"Sorted by {metric_col.replace('_', ' ')}"
 
     if return_html:
         return _span_of_control_plotly(
-            labels=labels, values=values, bar_colors=bar_colors,
-            title=title, subtitle=subtitle, color_by_department=color_by_department,
+            labels=labels,
+            values=values,
+            bar_colors=bar_colors,
+            title=title,
+            subtitle=subtitle,
+            color_by_department=color_by_department,
         )
 
     apply_default_style()
     fig, ax = new_figure(figsize=figsize)
+    ax = cast_axes(ax)
     y_pos = np.arange(len(labels))
     bars = ax.barh(y_pos, values, color=bar_colors, edgecolor="white", linewidth=0.6)
     ax.set_yticks(y_pos)
     ax.set_yticklabels(labels)
     ax.invert_yaxis()  # largest at the top
     style_axis_labels(ax, xlabel=metric_col.replace("_", " ").title(), title=title)
-    ax.text(0.0, 1.02, subtitle, transform=ax.transAxes,
-            fontsize=10, color=PALETTE["neutral_lt"], ha="left", va="bottom")
+    ax.text(
+        0.0,
+        1.02,
+        subtitle,
+        transform=ax.transAxes,
+        fontsize=10,
+        color=PALETTE["neutral_lt"],
+        ha="left",
+        va="bottom",
+    )
     configure_axes(ax, grid=True, grid_axis="x")
 
     # Annotate values at the tip of each bar
@@ -157,57 +208,123 @@ def span_of_control(
             bar.get_width() + vmax * 0.01,
             bar.get_y() + bar.get_height() / 2,
             f"{int(v):,}",
-            va="center", ha="left",
-            fontsize=9, color=PALETTE["neutral"],
+            va="center",
+            ha="left",
+            fontsize=9,
+            color=PALETTE["neutral"],
         )
 
     # Median reference line
     if values:
         med = float(np.median(values))
-        ax.axvline(med, color=PALETTE["accent"], linestyle="--", linewidth=1.2,
-                   alpha=0.8, zorder=2)
-        ax.text(med, len(labels) - 0.4, f" median = {med:.1f}",
-                color=PALETTE["accent"], fontsize=9, ha="left", va="bottom")
+        ax.axvline(med, color=PALETTE["accent"], linestyle="--", linewidth=1.2, alpha=0.8, zorder=2)
+        ax.text(
+            med,
+            len(labels) - 0.4,
+            f" median = {med:.1f}",
+            color=PALETTE["accent"],
+            fontsize=9,
+            ha="left",
+            va="bottom",
+        )
 
     return fig
 
 
+def cast_axes(ax: Any) -> mpl_axes.Axes:
+    """Cast a single subplot axes to ``mpl_axes.Axes``.
+
+    Parameters
+    ----------
+    ax
+        Axes returned by ``new_figure``.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        A single Axes object.
+    """
+    from matplotlib.axes import Axes
+
+    if isinstance(ax, Axes):
+        return ax
+    raise TypeError("expected a single Axes instance")
+
+
 def _span_of_control_plotly(
-    *, labels, values, bar_colors, title, subtitle, color_by_department,
+    *,
+    labels: list[str],
+    values: list[float],
+    bar_colors: list[str] | str,
+    title: str,
+    subtitle: str,
+    color_by_department: bool,
 ) -> str:
+    """Build an interactive Plotly HTML bar chart for span of control.
+
+    Parameters
+    ----------
+    labels
+        Y-axis labels.
+    values
+        Bar lengths.
+    bar_colors
+        Either a list of per-bar hex colors or a single fallback color.
+    title
+        Chart title.
+    subtitle
+        Chart subtitle rendered under the title.
+    color_by_department
+        Whether bars are colored by department.
+
+    Returns
+    -------
+    str
+        Standalone HTML string.
+    """
     import plotly.graph_objects as go
 
     marker = dict(
         color=bar_colors if isinstance(bar_colors, list) else PALETTE["primary"],
         line=dict(color="white", width=0.5),
     )
-    fig = go.Figure(go.Bar(
-        x=values, y=labels, orientation="h",
-        marker=marker, hovertemplate="%{y}: %{x}<extra></extra>",
-    ))
+    fig = go.Figure(
+        go.Bar(
+            x=values,
+            y=labels,
+            orientation="h",
+            marker=marker,
+            hovertemplate="%{y}: %{x}<extra></extra>",
+        )
+    )
+    escaped_title = title.replace("<", "&lt;").replace(">", "&gt;")
+    escaped_subtitle = subtitle.replace("<", "&lt;").replace(">", "&gt;")
     fig.update_layout(
-        title=dict(text=f"<b>{title}</b><br><span style='font-size:11px;color:#A6A6A6'>{subtitle}</span>",
-                   x=0.01, xanchor="left"),
+        title=dict(
+            text=f"<b>{escaped_title}</b><br><span style='font-size:11px;color:#A6A6A6'>{escaped_subtitle}</span>",
+            x=0.01,
+            xanchor="left",
+        ),
         plot_bgcolor="white",
         paper_bgcolor="white",
         font=dict(family="DejaVu Sans", color=PALETTE["neutral"]),
-        xaxis=dict(title="Direct Reports",
-                   gridcolor="#E5E5E5", zerolinecolor="#E5E5E5"),
+        xaxis=dict(title="Direct Reports", gridcolor="#E5E5E5", zerolinecolor="#E5E5E5"),
         yaxis=dict(autorange="reversed"),
         margin=dict(l=180, r=40, t=80, b=50),
         height=600,
     )
-    return fig.to_html(include_plotlyjs="cdn", full_html=True)
+    return str(fig.to_html(include_plotlyjs="cdn", full_html=True, div_id="span_of_control_chart"))
 
 
 # ---------------------------------------------------------------------------
 # Span vs Depth bubble chart
 # ---------------------------------------------------------------------------
 
+
 def span_vs_depth(
     df: pd.DataFrame,
     *,
-    id_col: str = "manager_id",
+    id_col: str = "employee_id",
     span_col: str = "direct_reports",
     depth_col: str = "levels_below",
     team_col: str = "total_reports",
@@ -216,7 +333,7 @@ def span_vs_depth(
     name_col: str = "name",
     title: str | None = None,
     figsize: tuple[float, float] = (10.0, 7.5),
-) -> Any:
+) -> mpl_figure.Figure:
     """Quadrant bubble chart of span × depth with team size as bubble area.
 
     Each bubble represents one manager. The four quadrants are:
@@ -226,9 +343,44 @@ def span_vs_depth(
     - **Flat leaders**:  low span, low depth (small flat groups).
     - **Deep & broad**:  high span, high depth (large tall pyramids).
 
+    Parameters
+    ----------
+    df
+        Manager-level statistics DataFrame.
+    id_col
+        Manager identifier column.
+    span_col
+        Column with direct-report counts.
+    depth_col
+        Column with depth counts.
+    team_col
+        Column with total team size.
+    label_col
+        Optional explicit label column in ``df``.
+    metadata
+        Optional per-manager metadata for labels.
+    name_col
+        Column in ``metadata`` holding display names.
+    title
+        Optional chart title.
+    figsize
+        Figure size in inches.
+
     Returns
     -------
     matplotlib.figure.Figure
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import pyduck_ona_viz as viz
+    >>> df = pd.DataFrame({
+    ...     "employee_id": ["M1", "M2", "M3"],
+    ...     "direct_reports": [8, 3, 12],
+    ...     "levels_below": [2, 4, 3],
+    ...     "total_reports": [15, 5, 30],
+    ... })
+    >>> fig = viz.span_vs_depth(df)
     """
     if id_col not in df.columns:
         raise KeyError(f"Column '{id_col}' not found in DataFrame")
@@ -261,9 +413,17 @@ def span_vs_depth(
 
     apply_default_style()
     fig, ax = new_figure(figsize=figsize)
-    ax.scatter(x, y, s=sizes, alpha=0.65,
-               color=PALETTE["secondary"], edgecolor=PALETTE["primary"],
-               linewidths=0.8, zorder=3)
+    ax = cast_axes(ax)
+    ax.scatter(
+        x,
+        y,
+        s=sizes,
+        alpha=0.65,
+        color=PALETTE["secondary"],
+        edgecolor=PALETTE["primary"],
+        linewidths=0.8,
+        zorder=3,
+    )
 
     # Quadrant reference lines (median split)
     if x.size and y.size:
@@ -273,14 +433,42 @@ def span_vs_depth(
         # Quadrant labels
         x_pad = (x.max() - x.min()) * 0.04 or 0.1
         y_pad = (y.max() - y.min()) * 0.04 or 0.1
-        ax.text(x_med + x_pad, y.max() - y_pad, "DEEP & BROAD",
-                fontsize=9, fontweight="bold", color=PALETTE["neutral_lt"], ha="left")
-        ax.text(x.max() - x_pad, y_med + y_pad, "EFFICIENT",
-                fontsize=9, fontweight="bold", color=PALETTE["success"], ha="right")
-        ax.text(x_med - x_pad, y.max() - y_pad, "TOP-HEAVY",
-                fontsize=9, fontweight="bold", color=PALETTE["accent"], ha="right")
-        ax.text(x.min() + x_pad, y_med + y_pad, "FLAT",
-                fontsize=9, fontweight="bold", color=PALETTE["neutral_lt"], ha="left")
+        ax.text(
+            x_med + x_pad,
+            y.max() - y_pad,
+            "DEEP & BROAD",
+            fontsize=9,
+            fontweight="bold",
+            color=PALETTE["neutral_lt"],
+            ha="left",
+        )
+        ax.text(
+            x.max() - x_pad,
+            y_med + y_pad,
+            "EFFICIENT",
+            fontsize=9,
+            fontweight="bold",
+            color=PALETTE["success"],
+            ha="right",
+        )
+        ax.text(
+            x_med - x_pad,
+            y.max() - y_pad,
+            "TOP-HEAVY",
+            fontsize=9,
+            fontweight="bold",
+            color=PALETTE["accent"],
+            ha="right",
+        )
+        ax.text(
+            x.min() + x_pad,
+            y_med + y_pad,
+            "FLAT",
+            fontsize=9,
+            fontweight="bold",
+            color=PALETTE["neutral_lt"],
+            ha="left",
+        )
 
     # Annotate the largest bubbles (top 5 by team size)
     top_idx = np.argsort(work[team_col].to_numpy())[-5:]
@@ -288,8 +476,10 @@ def span_vs_depth(
         ax.annotate(
             labels[i],
             (x[i], y[i]),
-            xytext=(6, 6), textcoords="offset points",
-            fontsize=8.5, color=PALETTE["primary"],
+            xytext=(6, 6),
+            textcoords="offset points",
+            fontsize=8.5,
+            color=PALETTE["primary"],
         )
 
     title = title or "Span vs Depth"
@@ -305,13 +495,25 @@ def span_vs_depth(
     # Legend for bubble sizes
     if x.size:
         for size_label, size_val in [("10", 10), ("50", 50), ("200", 200)]:
-            ax.scatter([], [], s=np.sqrt(size_val) * 22,
-                       color=PALETTE["secondary"], alpha=0.65,
-                       edgecolor=PALETTE["primary"], linewidths=0.8,
-                       label=f"{team_col.replace('_', ' ')} = {size_label}")
-        ax.legend(loc="lower right", title="Bubble size",
-                  fontsize=8.5, title_fontsize=9, frameon=True,
-                  facecolor="white", edgecolor="#E5E5E5")
+            ax.scatter(
+                [],
+                [],
+                s=np.sqrt(size_val) * 22,
+                color=PALETTE["secondary"],
+                alpha=0.65,
+                edgecolor=PALETTE["primary"],
+                linewidths=0.8,
+                label=f"{team_col.replace('_', ' ')} = {size_label}",
+            )
+        ax.legend(
+            loc="lower right",
+            title="Bubble size",
+            fontsize=8.5,
+            title_fontsize=9,
+            frameon=True,
+            facecolor="white",
+            edgecolor="#E5E5E5",
+        )
 
     return fig
 

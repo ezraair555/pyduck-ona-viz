@@ -1,5 +1,11 @@
 # pyduck-ona-viz
 
+[![CI](https://github.com/ezraair555/pyduck-ona-viz/actions/workflows/ci.yml/badge.svg)](https://github.com/ezraair555/pyduck-ona-viz/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/pyduck-ona-viz.svg)](https://pypi.org/project/pyduck-ona-viz/)
+[![Python versions](https://img.shields.io/pypi/pyversions/pyduck-ona-viz.svg)](https://pypi.org/project/pyduck-ona-viz/)
+[![Coverage](https://img.shields.io/badge/coverage-93%25-success)](https://github.com/ezraair555/pyduck-ona-viz)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 > Publication-quality visualizations for organizational chart analysis
 > and people analytics. Companion package to
 > [`pyduck-ona`](https://github.com/ezraair555/pyduck-ona).
@@ -41,21 +47,40 @@ pip install -e ".[interactive]"
 ## Quick start
 
 ```python
-import pyduck_ona as pona
+import pandas as pd
 import pyduck_ona_viz as viz
 
-# pyduck-ona produces DuckDB relations; .df() gives us pandas DataFrames.
-long_df  = pona.hierarchy_long(rel, "employee_id", "supervisor_id").df()
-stats_df = pona.hierarchy_stats(rel, "employee_id", "supervisor_id").df()
+# Build a tiny synthetic org — no external database needed.
+hierarchy = pd.DataFrame({
+    "employee_id": ["CEO", "VP1", "VP2", "M1", "M2", "IC1"],
+    "supervisor_id": [None, "CEO", "CEO", "VP1", "VP2", "M1"],
+})
+metadata = pd.DataFrame({
+    "employee_id": hierarchy["employee_id"],
+    "name": [f"Person-{e}" for e in hierarchy["employee_id"]],
+    "department": ["Exec", "Eng", "Sales", "Eng", "Sales", "Eng"],
+    "title": ["CEO", "VP", "VP", "Manager", "Manager", "IC"],
+})
 
-# 1. Span-of-control bar chart
-fig = viz.span_of_control(stats_df, top_n=20)
+# Interactive org chart
+html = viz.org_chart_tree(
+    hierarchy,
+    metadata=metadata,
+    color_by="department",
+    title="Acme Corp · Q4 2026",
+)
 
-# 2. Interactive org chart (HTML string)
-html = viz.org_chart_tree(long_df, metadata=employees_df)
+# Span of control
+stats = pd.DataFrame({
+    "employee_id": ["CEO", "VP1", "VP2", "M1", "M2"],
+    "direct_reports": [2, 2, 1, 1, 0],
+    "total_reports": [5, 3, 2, 1, 0],
+    "levels_below": [2, 1, 1, 0, 0],
+})
+fig = viz.span_of_control(stats, metadata=metadata, top_n=10)
 
-# 3. Single-page executive dashboard
-html = viz.summary_dashboard(stats_df, betweenness=b.df(), pagerank=pr.df())
+# One-page executive dashboard
+dash_html = viz.summary_dashboard(stats)
 ```
 
 ---
@@ -82,12 +107,6 @@ html = viz.summary_dashboard(stats_df, betweenness=b.df(), pagerank=pr.df())
 ### Interactive org chart
 
 ```python
-import pyduck_ona as pona
-import pyduck_ona_viz as viz
-
-long_df = pona.hierarchy_long(rel, "employee_id", "supervisor_id").df()
-metadata = employees_df  # must contain employee_id + name + title + department
-
 html = viz.org_chart_tree(
     long_df,
     metadata=metadata,
@@ -97,25 +116,21 @@ html = viz.org_chart_tree(
 Path("org.html").write_text(html)
 ```
 
-> _Screenshot placeholder_: A horizontal D3 tree with nodes coloured by
-> department, a legend in the top-right, and zoom/expand controls in the
-> bottom-right.
+![Interactive org chart](examples/output/09_org_chart.html)
 
 ### Span of control
 
 ```python
 fig = viz.span_of_control(
     stats_df,
-    metadata=employees_df,
+    metadata=metadata,
     top_n=15,
     color_by_department=True,
 )
 fig.savefig("span.png", dpi=300, bbox_inches="tight")
 ```
 
-> _Screenshot placeholder_: A horizontal bar chart with the largest team at
-> the top, annotated counts at the bar tips, a dashed median reference line,
-> and bars coloured by department.
+![Span of control](examples/output/01_span_of_control.png)
 
 ### Centrality dashboard
 
@@ -125,13 +140,12 @@ fig = viz.centrality_dashboard(
     pagerank=pr.df(),
     eigenvector=ev.df(),
     degree=dg.df(),
-    metadata=employees_df,
+    metadata=metadata,
     top_n=10,
 )
 ```
 
-> _Screenshot placeholder_: A 2×2 grid of bar charts, each with subtitle
-> and top-10 colouring by department.
+![Centrality dashboard](examples/output/04_centrality_dashboard.png)
 
 ### Silo map
 
@@ -143,8 +157,7 @@ html = viz.silo_map(edges_df, communities=comms.df(), return_html=True)
 fig = viz.silo_map(edges_df, communities=comms.df(), return_html=False)
 ```
 
-> _Screenshot placeholder_: A force-directed network with each community
-> coloured differently, only the highest-degree nodes labelled.
+![Silo map](examples/output/05_silo_map.png)
 
 ### Compensation equity
 
@@ -157,10 +170,7 @@ fig = viz.compensation_equity(
 )
 ```
 
-> _Screenshot placeholder_: Scatter coloured by group with two regression
-> lines and an overall fit. Outliers (1.5×IQR from the overall line) are
-> circled in red with names annotated. A small badge in the corner shows
-> the median salary gap between the two groups.
+![Compensation equity](examples/output/07_compensation_equity.png)
 
 ### Summary dashboard
 
@@ -175,10 +185,7 @@ html = viz.summary_dashboard(
 Path("dashboard.html").write_text(html)
 ```
 
-> _Screenshot placeholder_: A single page with KPI cards across the top
-> (headcount, managers, avg span, max depth) and a 2-column grid of
-> interactive Plotly panels below: span bars, span histogram, top brokers,
-> top PageRank, diversity mix, attrition heatmap.
+![Summary dashboard](examples/output/10_summary_dashboard.html)
 
 ---
 
@@ -229,6 +236,7 @@ python examples/full_viz_demo.py
 
 The demo builds a synthetic 300-person org with realistic hierarchy stats,
 runs every visualization, and writes them to `examples/output/`.
+See [`examples/README.md`](examples/README.md) for the output catalogue.
 
 ---
 
@@ -238,8 +246,37 @@ runs every visualization, and writes them to `examples/output/`.
 pytest tests/
 ```
 
-Smoke tests verify that every function returns the correct type
-(Figure or HTML str) when fed synthetic data.
+The test suite contains **126 collected tests** (125 run by default; one
+slow performance smoke is skipped unless `-m slow` is passed). Current line
+coverage is **≥90%**.
+
+---
+
+## Security
+
+If you discover a security issue, please follow the process in
+[`SECURITY.md`](SECURITY.md). Do **not** open a public issue for
+vulnerabilities.
+
+---
+
+## Contributing
+
+Pull requests are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for
+setup, lint commands, and PR expectations.
+
+---
+
+## Documentation
+
+Full API docs are built with MkDocs and hosted at
+<https://ezraair555.github.io/pyduck-ona-viz/>.
+To build locally:
+
+```bash
+pip install -e ".[all,dev]"
+mkdocs serve
+```
 
 ---
 

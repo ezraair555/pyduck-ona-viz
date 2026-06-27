@@ -10,23 +10,25 @@ Two functions:
                                    chain of command from an employee up to
                                    the top of the organization.
 """
+
 from __future__ import annotations
 
+import json
 from html import escape
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from pyduck_ona_viz.theme import (
-    CATEGORICAL,
-    PALETTE,
-    apply_default_style,
-    new_figure,
-)
+from pyduck_ona_viz.theme import CATEGORICAL, PALETTE, apply_default_style, new_figure
+
+if TYPE_CHECKING:
+    import matplotlib.axes as mpl_axes
+    import matplotlib.figure as mpl_figure
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _normalize_hierarchy(
     df: pd.DataFrame,
@@ -34,35 +36,87 @@ def _normalize_hierarchy(
     id_col: str = "employee_id",
     supervisor_col: str = "supervisor_id",
 ) -> pd.DataFrame:
-    """Coerce the input to a DataFrame with at minimum id/supervisor columns."""
+    """Coerce the input to a DataFrame with at minimum id/supervisor columns.
+
+    Parameters
+    ----------
+    df
+        Long-form hierarchy DataFrame.
+    id_col
+        Employee identifier column.
+    supervisor_col
+        Supervisor identifier column.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Validated input DataFrame.
+
+    Raises
+    ------
+    TypeError
+        If ``df`` is not a DataFrame.
+    KeyError
+        If required columns are missing.
+    ValueError
+        If duplicate employee IDs are found.
+    """
     if not isinstance(df, pd.DataFrame):
         raise TypeError("`df` must be a pandas DataFrame (use .df() on the relation)")
     if id_col not in df.columns:
         raise KeyError(f"Column '{id_col}' not found in DataFrame")
     if supervisor_col not in df.columns:
         raise KeyError(f"Column '{supervisor_col}' not found in DataFrame")
+    duplicates = df[id_col].dropna().astype(str).loc[df[id_col].astype(str).duplicated()].unique()
+    if len(duplicates) > 0:
+        raise ValueError(f"Duplicate employee IDs found: {sorted(duplicates)}")
     return df
 
 
 def _build_tree(
-    df: pd.DataFrame, id_col: str, supervisor_col: str,
-) -> dict[str, dict[str, Any]]:
-    """Build a parent → children mapping from a long-form hierarchy table."""
+    df: pd.DataFrame,
+    id_col: str,
+    supervisor_col: str,
+) -> dict[str, Any]:
+    """Build a parent → children mapping from a long-form hierarchy table.
+
+    Parameters
+    ----------
+    df
+        Validated long-form hierarchy DataFrame.
+    id_col
+        Employee identifier column.
+    supervisor_col
+        Supervisor identifier column.
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary with ``children_map`` (dict[str, list[str]]) and ``roots``
+        (list[str]).
+    """
     children: dict[str, list[str]] = {}
     roots: list[str] = []
-    for _, row in df.iterrows():
-        child = row[id_col]
-        parent = row[supervisor_col]
-        if pd.isna(parent) or parent is None or parent == "":
-            roots.append(child)
-            children.setdefault(child, [])
+    parent_map = (
+        df[[id_col, supervisor_col]]
+        .dropna(subset=[id_col])
+        .drop_duplicates(subset=[id_col])
+        .set_index(id_col)[supervisor_col]
+        .to_dict()
+    )
+    for child, parent in parent_map.items():
+        child_id = str(child)
+        if pd.isna(parent) or parent is None or str(parent) == "":
+            roots.append(child_id)
+            children.setdefault(child_id, [])
         else:
-            children.setdefault(parent, []).append(child)
-            children.setdefault(child, [])
+            parent_id = str(parent)
+            children.setdefault(parent_id, []).append(child_id)
+            children.setdefault(child_id, [])
     if not roots:
         # No roots declared: synthesize one synthetic root to keep the chart
         # connected. Pick the first row's parent or any node.
-        all_ids = set(df[id_col].dropna().tolist())
+        all_ids = set(df[id_col].dropna().astype(str).tolist())
         roots = [next(iter(all_ids))]
     return {"children_map": children, "roots": roots}
 
@@ -70,6 +124,7 @@ def _build_tree(
 # ---------------------------------------------------------------------------
 # Interactive org chart (HTML / D3-style)
 # ---------------------------------------------------------------------------
+
 
 def org_chart_tree(
     df: pd.DataFrame,
@@ -94,18 +149,43 @@ def org_chart_tree(
     df
         Long-form hierarchy (one row per manager → report edge). The output
         of ``pyduck_ona.hierarchy_long(...)`` after ``.df()`` works directly.
+    id_col
+        Employee identifier column in ``df``.
+    supervisor_col
+        Supervisor identifier column in ``df``.
     metadata
         Optional per-employee metadata DataFrame keyed by ``id_col``.
+    name_col, title_col, department_col, level_col
+        Optional metadata columns for node display.
     color_by
         One of ``"department"``, ``"level"`` or ``None``. Controls node fill.
     root_id
         Optional explicit root node; defaults to the topmost supervisor.
+    title
+        Chart title.
+    height, width
+        CSS dimensions for the chart container.
 
     Returns
     -------
     str
         A full HTML document with an embedded D3 tree layout. Save to disk
         with ``Path("org.html").write_text(html)`` to view in a browser.
+
+    Raises
+    ------
+    ValueError
+        If ``root_id`` is provided but is not present in the hierarchy.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import pyduck_ona_viz as viz
+    >>> df = pd.DataFrame({
+    ...     "employee_id": ["CEO", "VP1", "VP2"],
+    ...     "supervisor_id": [None, "CEO", "CEO"],
+    ... })
+    >>> html = viz.org_chart_tree(df)
     """
     df = _normalize_hierarchy(df, id_col=id_col, supervisor_col=supervisor_col)
 
@@ -117,41 +197,47 @@ def org_chart_tree(
     meta_lookup: dict[str, dict[str, Any]] = {}
     if metadata is not None and id_col in metadata.columns:
         for _, row in metadata.iterrows():
-            meta_lookup[str(row[id_col])] = row.to_dict()
+            meta_lookup[str(row[id_col])] = {str(k): v for k, v in row.to_dict().items()}
 
     # Resolve categorical colors for color_by
     color_lookup: dict[str, str] = {}
     if color_by and metadata is not None and color_by in metadata.columns:
-        distinct = [str(v) for v in metadata[color_by].dropna().unique()]
+        distinct = [escape(str(v)) for v in metadata[color_by].dropna().unique()]
         for i, v in enumerate(sorted(distinct)):
             color_lookup[v] = CATEGORICAL[i % len(CATEGORICAL)]
+
+    # Pick the rendering root
+    chosen_root = str(root_id) if root_id else roots[0]
+    if chosen_root not in children_map:
+        raise ValueError(
+            f"root_id '{chosen_root}' not found in the hierarchy. "
+            f"Known roots: {sorted(roots)[:5]}"
+        )
 
     # Build the nested tree structure that D3 expects.
     def make_node(node_id: str) -> dict[str, Any]:
         m = meta_lookup.get(str(node_id), {})
-        name = str(m.get(name_col, node_id)) if name_col in m else str(node_id)
-        title_str = str(m.get(title_col, "")) if title_col in m else ""
-        dept_str = str(m.get(department_col, "")) if department_col in m else ""
-        level_str = str(m.get(level_col, "")) if level_col in m else ""
+        name = escape(str(m.get(name_col, node_id))) if name_col in m else str(node_id)
+        title_str = escape(str(m.get(title_col, ""))) if title_col in m else ""
+        dept_str = escape(str(m.get(department_col, ""))) if department_col in m else ""
+        level_str = escape(str(m.get(level_col, ""))) if level_col in m else ""
         if color_by and color_by in m and not pd.isna(m[color_by]):
-            fill = color_lookup.get(str(m[color_by]), PALETTE["primary"])
+            fill = color_lookup.get(escape(str(m[color_by])), PALETTE["primary"])
         else:
             fill = PALETTE["primary"]
-        node = {
-            "id":       str(node_id),
-            "name":     name,
-            "title":    title_str,
+        node: dict[str, Any] = {
+            "id": str(node_id),
+            "name": name,
+            "title": title_str,
             "department": dept_str,
-            "level":    level_str,
-            "fill":     fill,
+            "level": level_str,
+            "fill": fill,
             "children": [],
         }
         for child_id in children_map.get(node_id, []):
             node["children"].append(make_node(child_id))
         return node
 
-    # Pick the rendering root
-    chosen_root = root_id or roots[0]
     tree_obj = make_node(chosen_root)
 
     # Pre-compute the legend entries
@@ -160,9 +246,11 @@ def org_chart_tree(
         for k in sorted(color_lookup.keys()):
             legend_entries.append({"label": k, "fill": color_lookup[k]})
 
-    import json
     tree_json = json.dumps(tree_obj, ensure_ascii=False)
     legend_json = json.dumps(legend_entries, ensure_ascii=False)
+
+    safe_title = escape(title or "Organizational Chart")
+    safe_color_by = escape(color_by or "")
 
     # The D3 v7 tree is loaded inline from a CDN; the layout is implemented
     # directly so the output works offline-friendly if the user downloads d3.
@@ -170,7 +258,7 @@ def org_chart_tree(
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>{escape(title or "Organizational Chart")}</title>
+<title>{safe_title}</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
   body {{
@@ -196,8 +284,8 @@ def org_chart_tree(
     margin-top: 2px;
   }}
   #chart {{
-    width: {width};
-    height: {height};
+    width: {escape(width)};
+    height: {escape(height)};
     background: white;
     position: relative;
     overflow: hidden;
@@ -267,12 +355,12 @@ def org_chart_tree(
 </head>
 <body>
 <div id="header">
-  <h1>{escape(title or "Organizational Chart")}</h1>
+  <h1>{safe_title}</h1>
   <div class="subtitle">Click a node to collapse / expand its subtree. Scroll to zoom, drag to pan.</div>
 </div>
 <div id="chart">
   <div id="legend">
-    <h3>{escape(color_by or "")}</h3>
+    <h3>{safe_color_by}</h3>
     <div id="legend-rows"></div>
   </div>
   <div id="controls">
@@ -295,7 +383,7 @@ def org_chart_tree(
     legendEntries.forEach(entry => {{
       const div = document.createElement("div");
       div.style.margin = "2px 0";
-      div.innerHTML = `<span class="swatch" style="background:${{entry.fill}}"></span>${{entry.label}}`;
+      div.innerHTML = `\u003cspan class="swatch" style="background:${{entry.fill}}"\u003e\u003c/span\u003e${{entry.label}}`;
       legendRows.appendChild(div);
     }});
   }}
@@ -455,6 +543,7 @@ def org_chart_tree(
 # Reporting chain walk (matplotlib)
 # ---------------------------------------------------------------------------
 
+
 def reporting_chain_walk(
     df: pd.DataFrame,
     employee_id: str,
@@ -467,38 +556,79 @@ def reporting_chain_walk(
     level_col: str = "level",
     title: str | None = None,
     figsize: tuple[float, float] = (12.0, 4.5),
-) -> Any:
+) -> mpl_figure.Figure:
     """Plot the reporting chain from ``employee_id`` up to the top of the org.
+
+    Parameters
+    ----------
+    df
+        Long-form hierarchy DataFrame.
+    employee_id
+        Employee whose chain should be walked.
+    id_col
+        Employee identifier column.
+    supervisor_col
+        Supervisor identifier column.
+    metadata
+        Optional per-employee metadata for labels.
+    name_col, title_col, level_col
+        Metadata columns for node display.
+    title
+        Optional chart title.
+    figsize
+        Figure size in inches.
 
     Returns
     -------
     matplotlib.figure.Figure
+
+    Raises
+    ------
+    ValueError
+        If a cycle is detected in the reporting chain.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import pyduck_ona_viz as viz
+    >>> df = pd.DataFrame({
+    ...     "employee_id": ["CEO", "VP1", "M1"],
+    ...     "supervisor_id": [None, "CEO", "VP1"],
+    ... })
+    >>> fig = viz.reporting_chain_walk(df, "M1")
     """
     df = _normalize_hierarchy(df, id_col=id_col, supervisor_col=supervisor_col)
 
-    parent_lookup: dict[str, str | None] = {}
-    for _, row in df.iterrows():
-        parent_lookup[str(row[id_col])] = (
-            None if pd.isna(row[supervisor_col]) else str(row[supervisor_col])
-        )
+    parent_lookup = (
+        df[[id_col, supervisor_col]]
+        .dropna(subset=[id_col])
+        .drop_duplicates(subset=[id_col])
+        .set_index(id_col)[supervisor_col]
+        .apply(lambda p: None if pd.isna(p) else str(p))
+        .to_dict()
+    )
 
     # Walk up to the root
     chain: list[str] = []
-    current: str | None = employee_id
+    current: str | None = str(employee_id)
     visited: set[str] = set()
     while current is not None and current not in visited:
         visited.add(current)
         chain.append(current)
         current = parent_lookup.get(current)
+    if current is not None and current in visited:
+        cycle_path = chain[chain.index(current) :] + [current]
+        raise ValueError(f"Cycle detected in reporting chain: {' -> '.join(cycle_path)}")
     chain.reverse()  # top of org first, employee last
 
     meta_lookup: dict[str, dict[str, Any]] = {}
     if metadata is not None and id_col in metadata.columns:
         for _, row in metadata.iterrows():
-            meta_lookup[str(row[id_col])] = row.to_dict()
+            meta_lookup[str(row[id_col])] = {str(k): v for k, v in row.to_dict().items()}
 
     apply_default_style()
     fig, ax = new_figure(figsize=figsize, nrows=1, ncols=1)
+    ax = cast_axes(ax)
     ax.set_xlim(-0.5, len(chain) - 0.5)
     ax.set_ylim(-1.5, 1.5)
     ax.axis("off")
@@ -506,8 +636,15 @@ def reporting_chain_walk(
     if title is None:
         title = f"Reporting chain · {employee_id}"
 
-    fig.suptitle(title, fontsize=16, fontweight="semibold",
-                 color=PALETTE["primary"], x=0.06, ha="left", y=0.97)
+    fig.suptitle(
+        title,
+        fontsize=16,
+        fontweight="semibold",
+        color=PALETTE["primary"],
+        x=0.06,
+        ha="left",
+        y=0.97,
+    )
 
     for i, node_id in enumerate(chain):
         m = meta_lookup.get(node_id, {})
@@ -516,7 +653,7 @@ def reporting_chain_walk(
         level_str = str(m.get(level_col, "")) if level_col in m else ""
 
         # Node box
-        is_target = node_id == employee_id
+        is_target = node_id == str(employee_id)
         fill = PALETTE["accent"] if is_target else PALETTE["primary"]
         box = dict(
             boxstyle="round,pad=0.6,rounding_size=0.25",
@@ -524,28 +661,73 @@ def reporting_chain_walk(
             edgecolor=fill,
             linewidth=1.6,
         )
-        ax.text(i, 0, name, ha="center", va="center",
-                fontsize=11, fontweight="bold", color=PALETTE["primary"], bbox=box)
+        ax.text(
+            i,
+            0,
+            name,
+            ha="center",
+            va="center",
+            fontsize=11,
+            fontweight="bold",
+            color=PALETTE["primary"],
+            bbox=box,
+        )
 
         if title_str or level_str:
             sub = "\n".join(filter(None, [title_str, level_str]))
-            ax.text(i, -0.85, sub, ha="center", va="top",
-                    fontsize=8.5, color=PALETTE["neutral_lt"], linespacing=1.4)
+            ax.text(
+                i,
+                -0.85,
+                sub,
+                ha="center",
+                va="top",
+                fontsize=8.5,
+                color=PALETTE["neutral_lt"],
+                linespacing=1.4,
+            )
 
         # Connector arrow to next
         if i < len(chain) - 1:
             ax.annotate(
-                "", xy=(i + 0.42, 0), xytext=(i + 0.30, 0),
-                arrowprops=dict(arrowstyle="->", color=PALETTE["neutral_lt"],
-                                lw=1.5, shrinkA=2, shrinkB=2),
+                "",
+                xy=(i + 0.42, 0),
+                xytext=(i + 0.30, 0),
+                arrowprops=dict(
+                    arrowstyle="->", color=PALETTE["neutral_lt"], lw=1.5, shrinkA=2, shrinkB=2
+                ),
             )
 
     # Footer caption
-    fig.text(0.06, 0.04,
-             f"{len(chain)} levels · from top of org to {employee_id}",
-             fontsize=9, color=PALETTE["neutral_lt"], ha="left")
+    fig.text(
+        0.06,
+        0.04,
+        f"{len(chain)} levels · from top of org to {employee_id}",
+        fontsize=9,
+        color=PALETTE["neutral_lt"],
+        ha="left",
+    )
 
     return fig
+
+
+def cast_axes(ax: Any) -> mpl_axes.Axes:
+    """Cast a single subplot axes to ``mpl_axes.Axes``.
+
+    Parameters
+    ----------
+    ax
+        Axes returned by ``new_figure``.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        A single Axes object.
+    """
+    from matplotlib.axes import Axes
+
+    if isinstance(ax, Axes):
+        return ax
+    raise TypeError("expected a single Axes instance")
 
 
 __all__ = ["org_chart_tree", "reporting_chain_walk"]

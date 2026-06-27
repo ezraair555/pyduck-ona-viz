@@ -6,9 +6,10 @@ People-analytics visualizations.
 - :func:`compensation_equity` - Tenure / level vs salary scatter with
                                 regression overlays and outlier flags.
 """
+
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -23,9 +24,35 @@ from pyduck_ona_viz.theme import (
     style_axis_labels,
 )
 
+if TYPE_CHECKING:
+    import matplotlib.axes as mpl_axes
+    import matplotlib.figure as mpl_figure
+
 # ---------------------------------------------------------------------------
 # Attrition heatmap
 # ---------------------------------------------------------------------------
+
+
+def _resolve_cmap(name: str) -> Any:
+    """Resolve a matplotlib colormap by name, falling back to viridis.
+
+    Parameters
+    ----------
+    name
+        Matplotlib colormap name.
+
+    Returns
+    -------
+    matplotlib.colors.Colormap
+        A colormap instance.
+    """
+    import matplotlib as mpl
+
+    try:
+        return mpl.colormaps.get_cmap(name)
+    except (ValueError, KeyError):
+        return mpl.colormaps.get_cmap("viridis")
+
 
 def attrition_heatmap(
     df: pd.DataFrame,
@@ -38,18 +65,49 @@ def attrition_heatmap(
     title: str | None = None,
     figsize: tuple[float, float] = (10.0, 6.5),
     cmap: str | None = None,
-) -> Any:
+) -> mpl_figure.Figure:
     """Render a department × job-level attrition heatmap.
 
     The DataFrame should already be aggregated to one row per (department,
     job_level) combination. If you pass the raw employee-level DataFrame,
     the function will aggregate it automatically using ``value_col`` for the
-    rate and ``count_col`` for the cell counts (defaults: ``value_col`` is
-    derived from ``attrition_col``; ``count_col`` defaults to row count).
+    rate and ``count_col`` for the cell counts.
+
+    Parameters
+    ----------
+    df
+        Aggregated or raw employee-level DataFrame.
+    department_col
+        Department column name.
+    level_col
+        Job-level column name.
+    attrition_col
+        Raw attrition flag column (used when ``value_col`` is None).
+    value_col
+        Pre-aggregated value column name.
+    count_col
+        Pre-aggregated count column name.
+    title
+        Optional chart title.
+    figsize
+        Figure size in inches.
+    cmap
+        Optional matplotlib colormap name.
 
     Returns
     -------
     matplotlib.figure.Figure
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import pyduck_ona_viz as viz
+    >>> df = pd.DataFrame({
+    ...     "department": ["Eng", "Eng", "Sales", "Sales"],
+    ...     "job_level": ["IC", "Mgr", "IC", "Mgr"],
+    ...     "attrition": [0.1, 0.05, 0.2, 0.15],
+    ... })
+    >>> fig = viz.attrition_heatmap(df)
     """
     if not isinstance(df, pd.DataFrame):
         raise TypeError("`df` must be a pandas DataFrame")
@@ -61,23 +119,21 @@ def attrition_heatmap(
             # Aggregate raw rows
             agg = (
                 df.groupby([department_col, level_col], dropna=False)
-                  .agg(rate=(attrition_col, "mean"),
-                       n=(attrition_col, "size"))
-                  .reset_index()
+                .agg(rate=(attrition_col, "mean"), n=(attrition_col, "size"))
+                .reset_index()
             )
             value_col = "rate"
             count_col = "n"
         else:
             # Pre-aggregated: look for a sensible value column.
             candidates = [
-                c for c in df.columns
-                if c not in (department_col, level_col)
-                and pd.api.types.is_numeric_dtype(df[c])
+                c
+                for c in df.columns
+                if c not in (department_col, level_col) and pd.api.types.is_numeric_dtype(df[c])
             ]
             if not candidates:
                 raise KeyError(
-                    f"Need '{attrition_col}' (raw) or pass value_col=... "
-                    "(pre-aggregated)"
+                    f"Need '{attrition_col}' (raw) or pass value_col=... " "(pre-aggregated)"
                 )
             value_col = candidates[0]
             agg = df.copy()
@@ -85,7 +141,8 @@ def attrition_heatmap(
         agg = df.copy()
     if count_col is None:
         candidates = [
-            c for c in agg.columns
+            c
+            for c in agg.columns
             if c not in (department_col, level_col, value_col)
             and pd.api.types.is_numeric_dtype(agg[c])
         ]
@@ -123,12 +180,19 @@ def attrition_heatmap(
     counts = pivot_cnt.to_numpy(dtype=float)
 
     apply_default_style()
-    fig, ax = new_figure(figsize=figsize)
+    fig, raw_ax = new_figure(figsize=figsize)
+    ax = _cast_single_axes(raw_ax)
     cmap_obj = DIVERG_RYG if cmap is None else _resolve_cmap(cmap)
     # Use a fixed 0-1 range so the colour scale is comparable across charts.
     vmin, vmax = 0.0, 1.0
-    im = ax.imshow(matrix, aspect="auto", cmap=cmap_obj,
-                   interpolation="nearest", vmin=vmin, vmax=vmax)
+    im = ax.imshow(
+        matrix,
+        aspect="auto",
+        cmap=cmap_obj,
+        interpolation="nearest",
+        vmin=vmin,
+        vmax=vmax,
+    )
 
     ax.set_xticks(np.arange(len(pivot_val.columns)))
     ax.set_xticklabels(pivot_val.columns)
@@ -152,13 +216,19 @@ def attrition_heatmap(
             if pd.isna(v) or pd.isna(n) or n == 0:
                 continue
             text_color = "white" if (v > 0.66 or v < 0.15) else PALETTE["neutral"]
-            ax.text(j, i, f"{v:.0%}\nn={int(n)}",
-                    ha="center", va="center",
-                    fontsize=9, color=text_color)
+            ax.text(
+                j,
+                i,
+                f"{v:.0%}\nn={int(n)}",
+                ha="center",
+                va="center",
+                fontsize=9,
+                color=text_color,
+            )
 
     cbar = fig.colorbar(im, ax=ax, shrink=0.7, pad=0.02)
     cbar.set_label("attrition rate", color=PALETTE["neutral"], fontsize=9)
-    cbar.outline.set_visible(False)
+    cbar.outline.set_visible(False)  # type: ignore[operator]
     cbar.ax.tick_params(labelsize=8)
 
     configure_axes(ax, grid=False)
@@ -171,17 +241,10 @@ def attrition_heatmap(
     return fig
 
 
-def _resolve_cmap(name: str):
-    import matplotlib.cm as cm
-    try:
-        return cm.get_cmap(name)
-    except ValueError:
-        return cm.get_cmap("viridis")
-
-
 # ---------------------------------------------------------------------------
 # Compensation equity scatter
 # ---------------------------------------------------------------------------
+
 
 def compensation_equity(
     df: pd.DataFrame,
@@ -196,16 +259,52 @@ def compensation_equity(
     title: str | None = None,
     figsize: tuple[float, float] = (11.0, 7.0),
     iqr_threshold: float = 1.5,
-) -> Any:
+) -> mpl_figure.Figure:
     """Scatter of tenure (or level) vs salary, coloured by group, with regression.
 
     A linear regression line is fit per group (and an overall line), and any
     point whose residual from the overall fit exceeds ``iqr_threshold``
     interquartile ranges is flagged as an outlier.
 
+    Parameters
+    ----------
+    df
+        Employee-level DataFrame.
+    x_col
+        Horizontal axis column (e.g. tenure).
+    y_col
+        Vertical axis column (e.g. salary).
+    group_col
+        Optional categorical grouping column.
+    label_col
+        Optional explicit label column in ``df``.
+    metadata
+        Optional per-employee metadata keyed by ``id_col``.
+    id_col
+        Identifier column used to look up names in ``metadata``.
+    name_col
+        Display-name column in ``metadata``.
+    title
+        Optional chart title.
+    figsize
+        Figure size in inches.
+    iqr_threshold
+        IQR multiplier for residual outlier detection.
+
     Returns
     -------
     matplotlib.figure.Figure
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import pyduck_ona_viz as viz
+    >>> df = pd.DataFrame({
+    ...     "tenure_years": [1, 2, 3, 4, 5],
+    ...     "salary": [70, 75, 90, 110, 200],
+    ...     "gender": ["F", "M", "F", "M", "M"],
+    ... })
+    >>> fig = viz.compensation_equity(df)
     """
     if not isinstance(df, pd.DataFrame):
         raise TypeError("`df` must be a pandas DataFrame")
@@ -220,8 +319,11 @@ def compensation_equity(
 
     name_lookup: dict[str, str] = {}
     if metadata is not None and id_col in metadata.columns and name_col in metadata.columns:
-        for _, row in metadata.iterrows():
-            name_lookup[str(row[id_col])] = str(row[name_col])
+        name_lookup = (
+            metadata.set_index(id_col)[name_col]
+            .apply(lambda v: str(v) if not pd.isna(v) else "")
+            .to_dict()
+        )
 
     # Resolve labels (use metadata name when label_col is not provided)
     if label_col and label_col in work.columns:
@@ -232,7 +334,8 @@ def compensation_equity(
         labels = [""] * len(work)
 
     apply_default_style()
-    fig, ax = new_figure(figsize=figsize)
+    fig, raw_ax = new_figure(figsize=figsize)
+    ax = _cast_single_axes(raw_ax)
 
     # Fit overall line and detect outliers
     x = work[x_col].to_numpy(dtype=float)
@@ -245,8 +348,10 @@ def compensation_equity(
         iqr = q3 - q1
         outlier_mask = (resid > q3 + iqr_threshold * iqr) | (resid < q1 - iqr_threshold * iqr)
     else:
-        coef = (0.0, float(y.mean()) if len(y) else 0.0)
+        coef = (0.0, float(y.mean()) if len(y) else 0.0)  # type: ignore[assignment]
         outlier_mask = np.zeros(len(x), dtype=bool)
+    # Track whether a real regression was fit for later line drawing
+    has_fit = len(x) >= 2
 
     # Draw scatter by group
     if group_col and group_col in work.columns:
@@ -255,46 +360,97 @@ def compensation_equity(
         palette = {g: category_colors(len(distinct))[i] for i, g in enumerate(distinct)}
         for g in distinct:
             mask = np.array([gg == g for gg in groups])
-            ax.scatter(x[mask], y[mask],
-                       color=palette[g], label=g,
-                       s=42, alpha=0.7,
-                       edgecolor="white", linewidth=0.6, zorder=3)
+            ax.scatter(
+                x[mask],
+                y[mask],
+                color=palette[g],
+                label=g,
+                s=42,
+                alpha=0.7,
+                edgecolor="white",
+                linewidth=0.6,
+                zorder=3,
+            )
             # Per-group regression line
             if mask.sum() >= 2:
                 gc = np.polyfit(x[mask], y[mask], 1)
-                xs = np.linspace(x.min(), x.max(), 100)
-                ax.plot(xs, np.polyval(gc, xs),
-                        color=palette[g], linestyle="--", linewidth=1.4, alpha=0.8,
-                        zorder=2)
-        ax.legend(loc="upper left", fontsize=9, frameon=True,
-                  facecolor="white", edgecolor="#E5E5E5", title=group_col)
+                xs = np.linspace(float(x.min()), float(x.max()), 100)
+                ax.plot(
+                    xs,
+                    np.polyval(gc, xs),
+                    color=palette[g],
+                    linestyle="--",
+                    linewidth=1.4,
+                    alpha=0.8,
+                    zorder=2,
+                )
+        ax.legend(
+            loc="upper left",
+            fontsize=9,
+            frameon=True,
+            facecolor="white",
+            edgecolor="#E5E5E5",
+            title=group_col,
+        )
     else:
-        ax.scatter(x, y, color=PALETTE["primary"], s=42, alpha=0.7,
-                   edgecolor="white", linewidth=0.6, zorder=3)
+        ax.scatter(
+            x,
+            y,
+            color=PALETTE["primary"],
+            s=42,
+            alpha=0.7,
+            edgecolor="white",
+            linewidth=0.6,
+            zorder=3,
+        )
 
     # Overall regression line
-    if len(x) >= 2:
-        xs = np.linspace(x.min(), x.max(), 100)
-        ax.plot(xs, np.polyval(coef, xs),
-                color=PALETTE["accent"], linewidth=2.2,
-                label=f"overall fit (slope={coef[0]:,.0f})", zorder=4)
-        ax.legend(loc="upper left", fontsize=9, frameon=True,
-                  facecolor="white", edgecolor="#E5E5E5")
+    if has_fit:
+        xs = np.linspace(float(x.min()), float(x.max()), 100)
+        ax.plot(
+            xs,
+            np.polyval(coef, xs),
+            color=PALETTE["accent"],
+            linewidth=2.2,
+            label=f"overall fit (slope={coef[0]:,.0f})",
+            zorder=4,
+        )
+        ax.legend(
+            loc="upper left",
+            fontsize=9,
+            frameon=True,
+            facecolor="white",
+            edgecolor="#E5E5E5",
+        )
 
     # Flag outliers
     if outlier_mask.any():
-        ax.scatter(x[outlier_mask], y[outlier_mask],
-                   facecolor="none", edgecolor=PALETTE["danger"],
-                   s=130, linewidth=1.8, zorder=5,
-                   label=f"outlier (IQR×{iqr_threshold})")
-        ax.legend(loc="upper left", fontsize=9, frameon=True,
-                  facecolor="white", edgecolor="#E5E5E5")
+        ax.scatter(
+            x[outlier_mask],
+            y[outlier_mask],
+            facecolor="none",
+            edgecolor=PALETTE["danger"],
+            s=130,
+            linewidth=1.8,
+            zorder=5,
+            label=f"outlier (IQR×{iqr_threshold})",
+        )
+        ax.legend(
+            loc="upper left",
+            fontsize=9,
+            frameon=True,
+            facecolor="white",
+            edgecolor="#E5E5E5",
+        )
         for i in np.where(outlier_mask)[0]:
             ax.annotate(
                 labels[i] or f"row {i}",
                 (x[i], y[i]),
-                xytext=(8, 8), textcoords="offset points",
-                fontsize=8, color=PALETTE["danger"], fontweight="bold",
+                xytext=(8, 8),
+                textcoords="offset points",
+                fontsize=8,
+                color=PALETTE["danger"],
+                fontweight="bold",
             )
 
     # Pay-gap annotation: median of one group vs another if exactly two groups
@@ -307,13 +463,21 @@ def compensation_equity(
             med_b = float(np.median(y[groups_arr == b]))
             gap_pct = (med_a - med_b) / med_b * 100 if med_b else 0.0
             ax.text(
-                0.98, 0.04,
+                0.98,
+                0.04,
                 f"Median {y_col} gap ({a} vs {b}): {gap_pct:+.1f}%",
-                transform=ax.transAxes, ha="right", va="bottom",
-                fontsize=9.5, color=PALETTE["accent"], fontweight="bold",
-                bbox=dict(boxstyle="round,pad=0.4",
-                          facecolor="white", edgecolor=PALETTE["accent"],
-                          linewidth=0.8),
+                transform=ax.transAxes,
+                ha="right",
+                va="bottom",
+                fontsize=9.5,
+                color=PALETTE["accent"],
+                fontweight="bold",
+                bbox=dict(
+                    boxstyle="round,pad=0.4",
+                    facecolor="white",
+                    edgecolor=PALETTE["accent"],
+                    linewidth=0.8,
+                ),
             )
 
     title = title or "Compensation Equity"
@@ -327,6 +491,31 @@ def compensation_equity(
     configure_axes(ax, grid=True, grid_axis="both")
 
     return fig
+
+
+def _cast_single_axes(ax: Any) -> mpl_axes.Axes:
+    """Cast a single subplot axes to ``mpl_axes.Axes``.
+
+    Parameters
+    ----------
+    ax
+        Axes returned by ``new_figure``.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        A single Axes object.
+
+    Raises
+    ------
+    TypeError
+        If ``ax`` is not a single Axes.
+    """
+    from matplotlib.axes import Axes
+
+    if isinstance(ax, Axes):
+        return ax
+    raise TypeError("expected a single Axes instance")
 
 
 __all__ = ["attrition_heatmap", "compensation_equity"]
